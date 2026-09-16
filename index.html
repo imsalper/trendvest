@@ -19,7 +19,7 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
   <!-- Stil Dosyası -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -52,6 +52,12 @@
       <button class="nav-tab-btn" data-screen="screen-screener" id="tabScreener">
         <span>🧺</span> Potansiyel Sepetler
       </button>
+      <button class="nav-tab-btn" data-screen="screen-portfolio" id="tabPortfolio">
+        <span>💼</span> Sepetim
+      </button>
+      <button class="nav-tab-btn" data-screen="screen-admin" id="tabAdmin" style="display: none;">
+        <span>🛡️</span> Admin
+      </button>
     </nav>
 
     <div class="nav-actions">
@@ -64,6 +70,11 @@
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">▾</span>
       </div>
+
+      <!-- Kimlik Doğrulama Butonu -->
+      <button class="icon-btn" id="btnOpenAuthModal" title="Giriş Yap / Kayıt Ol" style="width: auto; padding: 0 14px; font-size: 0.85rem; font-weight: 600;">
+        <span id="authNavLabel">👤 Giriş Yap</span>
+      </button>
 
       <!-- Ayarlar Butonu (Worker & Proxy) -->
       <button class="icon-btn" id="btnOpenSettingsModal" title="Worker ve API Ayarları">
@@ -186,6 +197,9 @@
 
             <button class="icon-btn" id="btnToggleFavorite" title="Favorilere Ekle/Kaldır" style="width: 44px; height: 44px; font-size: 1.3rem;">
               ⭐
+            </button>
+            <button class="btn-primary" id="btnOpenAddToBasketModal" title="Sepete Ekle" style="display: inline-flex; align-items: center; gap: 8px; padding: 0 18px; height: 44px; font-size: 0.9rem; font-weight: 600; white-space: nowrap;">
+              <span>🛒</span> Sepete Ekle
             </button>
           </div>
         </div>
@@ -383,6 +397,140 @@
 
     </section>
 
+    <!-- ==========================================================================
+         EKRAN 5: KİŞİSEL SEPETİM & SANAL PORTFÖY
+         ========================================================================== -->
+    <section id="screen-portfolio" class="screen-view">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 class="hero-title" style="font-size: 1.6rem; margin-bottom: 4px;">💼 Kişisel Sepetim & Sanal Portföy</h2>
+          <p style="font-size: 0.85rem; color: var(--text-secondary);">
+            $10.000 sanal bakiyenizle alım-satım simülasyonu yapın, kâr/zarar durumunuzu anlık piyasa fiyatlarıyla takip edin.
+          </p>
+        </div>
+        <button class="btn-primary" id="btnPortfolioExploreMarkets" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.85rem;">
+          <span>🌐</span> Piyasaları Keşfet & Varlık Ekle
+        </button>
+      </div>
+
+      <!-- Zorunlu Sanal Para Yasal Uyarısı -->
+      <div class="portfolio-legal-alert" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; font-size: 0.85rem; color: #fbbf24;">
+        <span style="font-size: 1.3rem;">⚠️</span>
+        <div>
+          <strong>Zorunlu Yasal Bilgilendirme:</strong> Bu platformdaki tüm işlemler sanal paradır, gerçek yatırım değildir. Liderlik tablosu ve kazançlar gerçek finansal sonuç göstermez. Bu uygulama yatırım danışmanlığı sağlamaz.
+        </div>
+      </div>
+
+      <!-- Giriş Yapılmamış Misafir Durumu -->
+      <div id="portfolioGuestState" style="text-align: center; padding: 60px 20px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl);">
+        <div style="font-size: 3rem; margin-bottom: 16px;">🔒</div>
+        <h3 style="font-size: 1.3rem; margin-bottom: 8px;">Kişisel Sepetinize Erişmek İçin Giriş Yapın</h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); max-width: 480px; margin: 0 auto 20px;">
+          Hisse senetleri ve kriptolarla kendi sepetinizi oluşturmak, $10.000 sanal nakdinizle alım simülasyonu yapmak ve pozisyonlarınızı takip etmek için lütfen giriş yapın.
+        </p>
+        <button class="btn-primary" id="btnPortfolioLoginPrompt" style="padding: 10px 24px; font-size: 0.9rem;">👤 Giriş Yap / Kayıt Ol</button>
+      </div>
+
+      <!-- Giriş Yapılmış Kullanıcı Portföy Durumu -->
+      <div id="portfolioUserState" style="display: none;">
+        
+        <!-- Üst Portföy Özet Metrikleri (KPI Kartları) -->
+        <div class="portfolio-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          
+          <div class="card-panel" style="padding: 18px;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Toplam Portföy Değeri</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #fff;" id="portfolioTotalValueUSD">$10,000.00</div>
+            <div style="font-size: 0.8rem; color: var(--color-primary); margin-top: 4px;" id="portfolioTotalValueLocal">≈ 345.000 ₺</div>
+          </div>
+
+          <div class="card-panel" style="padding: 18px;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Kullanılabilir Sanal Nakit</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #38bdf8;" id="portfolioCashUSD">$10,000.00</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Başlangıç: $10,000.00</div>
+          </div>
+
+          <div class="card-panel" style="padding: 18px;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Toplam Net Kâr / Zarar</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #94a3b8;" id="portfolioProfitLossUSD">$0.00</div>
+            <div style="font-size: 0.8rem; font-weight: 600;" id="portfolioProfitLossPct">%0.00</div>
+          </div>
+
+          <div class="card-panel" style="padding: 18px;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Sepetteki Pozisyonlar</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #a855f7;" id="portfolioAssetCount">0 Varlık</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Hisse + Kripto</div>
+          </div>
+
+        </div>
+
+        <!-- Portföy Boş Durumu -->
+        <div id="portfolioEmptyState" style="display: none; text-align: center; padding: 50px 20px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); margin-bottom: 24px;">
+          <div style="font-size: 2.8rem; margin-bottom: 12px;">🧺</div>
+          <h3 style="font-size: 1.2rem; margin-bottom: 6px;">Sepetiniz Henüz Boş</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); max-width: 440px; margin: 0 auto 18px;">
+            Henüz sepetinize varlık eklemediniz. Piyasaları inceleyin ve beğendiğiniz hisse veya kriptoların detayından <strong>"Sepete Ekle"</strong> butonuna tıklayarak ilk simüle alımınızı yapın.
+          </p>
+          <button class="btn-primary" id="btnPortfolioEmptyExplore" style="padding: 8px 20px;">🌐 Piyasaları İncele</button>
+        </div>
+
+        <!-- Portföy Pozisyonlar Tablosu -->
+        <div class="table-responsive" id="portfolioTableContainer">
+          <table class="screener-table">
+            <thead>
+              <tr>
+                <th>Varlık</th>
+                <th>Tür</th>
+                <th>Adet</th>
+                <th>Ort. Alış Fiyatı</th>
+                <th>Güncel Fiyat</th>
+                <th>Piyasa Değeri</th>
+                <th>Kâr / Zarar</th>
+                <th style="text-align: right;">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody id="portfolioTableBody">
+              <!-- Dinamik Pozisyon Satırları -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         EKRAN 6: ADMIN PANELİ (Sadece Yönetici Girişinde Görünür)
+         ========================================================================== -->
+    <section id="screen-admin" class="screen-view">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <h2 class="hero-title" style="font-size: 1.6rem;">🛡️ Kullanıcı Yönetimi</h2>
+        <button class="btn-secondary" id="btnRefreshUsers">🔄 Yenile</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">
+        Firebase Authentication üzerinden kayıt olan tüm kullanıcılar ve Firestore'daki profil bilgileri.
+      </p>
+
+      <div id="adminUsersEmptyState" style="display: none; padding: 40px; text-align: center; color: var(--text-muted);">
+        Henüz kayıtlı kullanıcı yok.
+      </div>
+
+      <div class="table-responsive">
+        <table class="screener-table">
+          <thead>
+            <tr>
+              <th>Kullanıcı</th>
+              <th>Kayıt Tarihi</th>
+              <th>Bakiye (USD)</th>
+              <th>Durum</th>
+              <th>İşlemler</th>
+            </tr>
+          </thead>
+          <tbody id="adminUsersTableBody">
+            <!-- Dinamik Kullanıcı Satırları -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
   </main>
 
   <!-- ==========================================================================
@@ -435,7 +583,214 @@
     </div>
   </div>
 
-  <!-- 3. Yasal Uyarı & Lisans Modalı -->
+  <!-- 3. Sepete Varlık Ekleme Modalı -->
+  <div class="modal-backdrop" id="modalAddToBasket">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title">🛒 Sepete Varlık Ekle (Simüle Alım)</h3>
+        <button class="modal-close-btn" data-close-modal="modalAddToBasket">✕</button>
+      </div>
+
+      <!-- Varlık Özet Bilgi Kutusu -->
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="basketModalSymbolBadge" style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.15); color: var(--color-primary); font-weight: 700; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">AAPL</div>
+          <div>
+            <div id="basketModalAssetName" style="font-weight: 600; font-size: 0.95rem;">Apple Inc.</div>
+            <div id="basketModalAssetType" style="font-size: 0.75rem; color: var(--text-muted);">Hisse Senedi</div>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Piyasa Fiyatı</div>
+          <div id="basketModalMarketPrice" style="font-size: 1.1rem; font-weight: 700; color: #fff;">$224.50</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Alınacak Adet / Miktar</label>
+        <input type="number" id="basketInputShares" class="form-control" value="1" min="0.0001" step="any">
+        <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn-secondary btn-quick-qty" data-qty="1" style="padding: 3px 8px; font-size: 0.75rem;">1 Adet</button>
+          <button type="button" class="btn-secondary btn-quick-qty" data-qty="5" style="padding: 3px 8px; font-size: 0.75rem;">5 Adet</button>
+          <button type="button" class="btn-secondary btn-quick-qty" data-qty="10" style="padding: 3px 8px; font-size: 0.75rem;">10 Adet</button>
+          <button type="button" class="btn-secondary btn-quick-qty" data-qty="25" style="padding: 3px 8px; font-size: 0.75rem;">25 Adet</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Birim Alış Fiyatı (USD)</label>
+        <input type="number" id="basketInputPrice" class="form-control" step="any">
+        <div class="form-hint">Varsayılan anlık fiyattır, dilediğiniz maliyeti girebilirsiniz.</div>
+      </div>
+
+      <!-- Hesaplama Paneli -->
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;">
+          <span style="color: var(--text-secondary);">Toplam Alım Tutarı:</span>
+          <strong id="basketCalcTotalCost" style="color: #fff; font-size: 1rem;">$224.50</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+          <span style="color: var(--text-muted);">Kullanılabilir Sanal Nakit:</span>
+          <span id="basketAvailableCash" style="color: #38bdf8;">$10,000.00</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+          <span style="color: var(--text-muted);">İşlem Sonrası Nakit:</span>
+          <span id="basketRemainingCash" style="color: var(--text-secondary);">$9,775.50</span>
+        </div>
+      </div>
+
+      <div id="basketErrorMsg" style="display: none; font-size: 0.82rem; color: #ef4444; margin-bottom: 12px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;"></div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalAddToBasket">İptal</button>
+        <button class="btn-primary" id="btnConfirmAddToBasket">🛒 Sepete Ekle & Satın Al</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Sepetten Satış / Çıkarma Modalı -->
+  <div class="modal-backdrop" id="modalSellFromBasket">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title">💰 Pozisyon Sat / Sepetten Çıkar</h3>
+        <button class="modal-close-btn" data-close-modal="modalSellFromBasket">✕</button>
+      </div>
+
+      <!-- Varlık Özet Bilgi Kutusu -->
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div id="sellModalSymbolBadge" style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">AAPL</div>
+          <div>
+            <div id="sellModalAssetName" style="font-weight: 600; font-size: 0.95rem;">Apple Inc.</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Mevcut: <strong id="sellModalCurrentShares">10</strong> Adet</div>
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Güncel Fiyat</div>
+          <div id="sellModalMarketPrice" style="font-size: 1.1rem; font-weight: 700; color: #fff;">$224.50</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Satılacak Adet / Miktar</label>
+        <input type="number" id="sellInputShares" class="form-control" value="1" min="0.0001" step="any">
+        <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn-secondary btn-quick-sell" data-pct="25" style="padding: 3px 8px; font-size: 0.75rem;">%25</button>
+          <button type="button" class="btn-secondary btn-quick-sell" data-pct="50" style="padding: 3px 8px; font-size: 0.75rem;">%50</button>
+          <button type="button" class="btn-secondary btn-quick-sell" data-pct="75" style="padding: 3px 8px; font-size: 0.75rem;">%75</button>
+          <button type="button" class="btn-secondary btn-quick-sell" data-pct="100" style="padding: 3px 8px; font-size: 0.75rem;">Tamamı (%100)</button>
+        </div>
+      </div>
+
+      <!-- Satış Hesaplama Paneli -->
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;">
+          <span style="color: var(--text-secondary);">Bakiyeye Geçecek Tutar:</span>
+          <strong id="sellCalcReturnUSD" style="color: #10b981; font-size: 1rem;">$224.50</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+          <span style="color: var(--text-muted);">Ortalama Maliyet:</span>
+          <span id="sellModalAvgCostDisplay" style="color: var(--text-secondary);">$215.00</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+          <span style="color: var(--text-muted);">Tahmini Kâr / Zarar:</span>
+          <span id="sellCalcProfitLossDisplay" style="font-weight: 600;">+$9.50 (+4.4%)</span>
+        </div>
+      </div>
+
+      <div id="sellErrorMsg" style="display: none; font-size: 0.82rem; color: #ef4444; margin-bottom: 12px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;"></div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalSellFromBasket">İptal</button>
+        <button class="btn-primary" id="btnConfirmSell" style="background: #ef4444; border-color: #dc2626;">💰 Satışı Onayla & Nakde Çevir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Admin Kullanıcı Sepeti İnceleme Modalı -->
+  <div class="modal-backdrop" id="modalAdminPortfolio">
+    <div class="modal-dialog" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="adminPortfolioModalTitle">👤 Kullanıcı Portföyü</h3>
+        <button class="modal-close-btn" data-close-modal="modalAdminPortfolio">✕</button>
+      </div>
+
+      <div id="adminPortfolioSummaryBox" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <div style="font-size: 0.78rem; color: var(--text-muted);">Kullanıcı:</div>
+          <div id="adminPortfolioUserEmail" style="font-weight: 600; font-size: 0.9rem;">-</div>
+        </div>
+        <div>
+          <div style="font-size: 0.78rem; color: var(--text-muted);">Sanal Nakit:</div>
+          <div id="adminPortfolioUserCash" style="font-weight: 600; font-size: 0.9rem; color: #38bdf8;">-</div>
+        </div>
+        <div>
+          <div style="font-size: 0.78rem; color: var(--text-muted);">Toplam Portföy Değeri:</div>
+          <div id="adminPortfolioUserTotal" style="font-weight: 600; font-size: 0.9rem; color: #10b981;">-</div>
+        </div>
+      </div>
+
+      <div id="adminPortfolioEmptyState" style="display: none; text-align: center; padding: 30px; color: var(--text-muted);">
+        Bu kullanıcının henüz sepetinde varlık bulunmuyor.
+      </div>
+
+      <div class="table-responsive" id="adminPortfolioTableContainer">
+        <table class="screener-table">
+          <thead>
+            <tr>
+              <th>Varlık</th>
+              <th>Adet</th>
+              <th>Ort. Maliyet</th>
+              <th>Güncel Fiyat</th>
+              <th>Piyasa Değeri</th>
+              <th>Kâr / Zarar</th>
+            </tr>
+          </thead>
+          <tbody id="adminPortfolioTableBody">
+            <!-- Dinamik Satırlar -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-primary" data-close-modal="modalAdminPortfolio">Kapat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Giriş / Kayıt Modalı -->
+  <div class="modal-backdrop" id="modalAuth">
+    <div class="modal-dialog" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="authModalTitle">👤 Giriş Yap</h3>
+        <button class="modal-close-btn" data-close-modal="modalAuth">✕</button>
+      </div>
+
+      <div id="authLoggedOutView">
+        <div class="form-group">
+          <label class="form-label">E-posta</label>
+          <input type="email" id="authEmailInput" class="form-control" placeholder="ornek@eposta.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Şifre</label>
+          <input type="password" id="authPasswordInput" class="form-control" placeholder="En az 6 karakter" autocomplete="current-password">
+        </div>
+        <div id="authErrorMsg" style="display: none; font-size: 0.82rem; color: #ef4444; margin-bottom: 12px;"></div>
+
+        <div class="modal-footer" style="justify-content: space-between; align-items: center;">
+          <a id="btnToggleAuthMode" style="font-size: 0.82rem; color: var(--color-primary); cursor: pointer;">Hesabın yok mu? Kayıt Ol</a>
+          <button class="btn-primary" id="btnSubmitAuth">Giriş Yap</button>
+        </div>
+      </div>
+
+      <div id="authLoggedInView" style="display: none; text-align: center; padding: 12px 0;">
+        <p style="margin-bottom: 16px;">✅ Giriş yapıldı: <strong id="authCurrentEmail"></strong></p>
+        <button class="btn-secondary" id="btnSignOut">Çıkış Yap</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Yasal Uyarı & Lisans Modalı -->
   <div class="modal-backdrop" id="modalLegal">
     <div class="modal-dialog">
       <div class="modal-header">
@@ -456,16 +811,22 @@
   </div>
 
   <!-- JavaScript Kodları -->
-  <script src="indicators.js"></script>
-  <script src="chart.js"></script>
-  <script src="screener.js"></script>
-  <script src="app.js"></script>
+  <script src="indicators.js?v=3"></script>
+  <script src="chart.js?v=3"></script>
+  <script src="screener.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 
   <!-- Firebase SDK & Başlatma -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+      createUserWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    import {
+      getFirestore, doc, setDoc, getDoc, getDocs, collection,
+      updateDoc, deleteDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBchFRE4ChKyBRi7udsPCduOgiz7qvZKvM",
@@ -483,6 +844,22 @@
     window.firebaseApp = app;
     window.firebaseAuth = auth;
     window.firebaseDb = db;
+
+    // --- app.js (klasik script) için köprü katmanı ---
+    window.fb = {
+      onAuthChanged: (cb) => onAuthStateChanged(auth, cb),
+      signUp: (email, password) => createUserWithEmailAndPassword(auth, email, password),
+      signIn: (email, password) => signInWithEmailAndPassword(auth, email, password),
+      signOut: () => signOut(auth),
+      createUserDoc: (uid, data) => setDoc(doc(db, 'users', uid), data),
+      getUserDoc: (uid) => getDoc(doc(db, 'users', uid)),
+      getAllUsers: () => getDocs(collection(db, 'users')),
+      updateUserDoc: (uid, data) => updateDoc(doc(db, 'users', uid), data),
+      deleteUserDoc: (uid) => deleteDoc(doc(db, 'users', uid)),
+      serverTimestamp
+    };
+
+    window.dispatchEvent(new CustomEvent('firebase-ready'));
   </script>
 </body>
 </html>

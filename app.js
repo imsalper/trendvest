@@ -14,8 +14,15 @@
     'JP': { code: 'JP', name: 'TSE', flag: '🇯🇵', fullName: 'Tokyo Stock Exchange', exampleSymbols: ['7203', '6758', '9984'] },
   };
 
+  // --- Yönetici E-postası (Admin Paneline erişim tek bu hesapla) ---
+  const ADMIN_EMAIL = 'imsalper@gmail.com';
+
   // --- Varsayılan Yapılandırma & Durum (State) ---
   const state = {
+    currentUser: null,
+    userProfile: null,
+    liveRates: {},
+    authMode: 'login', // 'login' | 'signup'
     workerUrl: localStorage.getItem('trendvest_worker_url') || 'https://trendvest-proxy.imsalper.workers.dev',
     currentScreen: 'screen-home',
     currentRegion: localStorage.getItem('trendvest_region') || 'TR',
@@ -72,11 +79,54 @@
       'screen-detail': document.getElementById('screen-detail'),
       'screen-ai': document.getElementById('screen-ai'),
       'screen-screener': document.getElementById('screen-screener'),
+      'screen-portfolio': document.getElementById('screen-portfolio'),
+      'screen-admin': document.getElementById('screen-admin'),
     },
     navBrandHome: document.getElementById('navBrandHome'),
+    tabAdmin: document.getElementById('tabAdmin'),
+    tabPortfolio: document.getElementById('tabPortfolio'),
     btnOpenRegionModal: document.getElementById('btnOpenRegionModal'),
     btnOpenSettingsModal: document.getElementById('btnOpenSettingsModal'),
     btnOpenLegalModal: document.getElementById('btnOpenLegalModal'),
+
+    // Kimlik Doğrulama
+    btnOpenAuthModal: document.getElementById('btnOpenAuthModal'),
+    authNavLabel: document.getElementById('authNavLabel'),
+    modalAuth: document.getElementById('modalAuth'),
+    authModalTitle: document.getElementById('authModalTitle'),
+    authLoggedOutView: document.getElementById('authLoggedOutView'),
+    authLoggedInView: document.getElementById('authLoggedInView'),
+    authEmailInput: document.getElementById('authEmailInput'),
+    authPasswordInput: document.getElementById('authPasswordInput'),
+    authErrorMsg: document.getElementById('authErrorMsg'),
+    btnToggleAuthMode: document.getElementById('btnToggleAuthMode'),
+    btnSubmitAuth: document.getElementById('btnSubmitAuth'),
+    authCurrentEmail: document.getElementById('authCurrentEmail'),
+    btnSignOut: document.getElementById('btnSignOut'),
+
+    // Portföy & Sepetim Ekranı
+    btnPortfolioExploreMarkets: document.getElementById('btnPortfolioExploreMarkets'),
+    btnPortfolioLoginPrompt: document.getElementById('btnPortfolioLoginPrompt'),
+    btnPortfolioEmptyExplore: document.getElementById('btnPortfolioEmptyExplore'),
+    portfolioGuestState: document.getElementById('portfolioGuestState'),
+    portfolioUserState: document.getElementById('portfolioUserState'),
+    portfolioEmptyState: document.getElementById('portfolioEmptyState'),
+    portfolioTotalValueUSD: document.getElementById('portfolioTotalValueUSD'),
+    portfolioTotalValueLocal: document.getElementById('portfolioTotalValueLocal'),
+    portfolioCashUSD: document.getElementById('portfolioCashUSD'),
+    portfolioProfitLossUSD: document.getElementById('portfolioProfitLossUSD'),
+    portfolioProfitLossPct: document.getElementById('portfolioProfitLossPct'),
+    portfolioAssetCount: document.getElementById('portfolioAssetCount'),
+    portfolioTableContainer: document.getElementById('portfolioTableContainer'),
+    portfolioTableBody: document.getElementById('portfolioTableBody'),
+
+    // Sepete Ekle Butonu (Detay Ekranı)
+    btnOpenAddToBasketModal: document.getElementById('btnOpenAddToBasketModal'),
+
+    // Admin Paneli
+    btnRefreshUsers: document.getElementById('btnRefreshUsers'),
+    adminUsersTableBody: document.getElementById('adminUsersTableBody'),
+    adminUsersEmptyState: document.getElementById('adminUsersEmptyState'),
     currentRegionFlag: document.getElementById('currentRegionFlag'),
     currentRegionName: document.getElementById('currentRegionName'),
     bistNoticeBanner: document.getElementById('bistNoticeBanner'),
@@ -133,7 +183,7 @@
     strategyAIExplanation: document.getElementById('strategyAIExplanation'),
     screenerTableBody: document.getElementById('screenerTableBody'),
 
-    // Modallar
+    // Modallar (Bölge, Ayarlar, Yasal, Sepet, Satış, Admin Portföy)
     modalRegion: document.getElementById('modalRegion'),
     modalSettings: document.getElementById('modalSettings'),
     modalLegal: document.getElementById('modalLegal'),
@@ -141,18 +191,691 @@
     workerUrlInput: document.getElementById('workerUrlInput'),
     workerStatusIndicator: document.getElementById('workerStatusIndicator'),
     btnTestWorker: document.getElementById('btnTestWorker'),
-    btnSaveSettings: document.getElementById('btnSaveSettings')
+    btnSaveSettings: document.getElementById('btnSaveSettings'),
+
+    modalAddToBasket: document.getElementById('modalAddToBasket'),
+    basketModalSymbolBadge: document.getElementById('basketModalSymbolBadge'),
+    basketModalAssetName: document.getElementById('basketModalAssetName'),
+    basketModalAssetType: document.getElementById('basketModalAssetType'),
+    basketModalMarketPrice: document.getElementById('basketModalMarketPrice'),
+    basketInputShares: document.getElementById('basketInputShares'),
+    basketInputPrice: document.getElementById('basketInputPrice'),
+    basketCalcTotalCost: document.getElementById('basketCalcTotalCost'),
+    basketAvailableCash: document.getElementById('basketAvailableCash'),
+    basketRemainingCash: document.getElementById('basketRemainingCash'),
+    basketErrorMsg: document.getElementById('basketErrorMsg'),
+    btnConfirmAddToBasket: document.getElementById('btnConfirmAddToBasket'),
+
+    modalSellFromBasket: document.getElementById('modalSellFromBasket'),
+    sellModalSymbolBadge: document.getElementById('sellModalSymbolBadge'),
+    sellModalAssetName: document.getElementById('sellModalAssetName'),
+    sellModalCurrentShares: document.getElementById('sellModalCurrentShares'),
+    sellModalMarketPrice: document.getElementById('sellModalMarketPrice'),
+    sellInputShares: document.getElementById('sellInputShares'),
+    sellCalcReturnUSD: document.getElementById('sellCalcReturnUSD'),
+    sellModalAvgCostDisplay: document.getElementById('sellModalAvgCostDisplay'),
+    sellCalcProfitLossDisplay: document.getElementById('sellCalcProfitLossDisplay'),
+    sellErrorMsg: document.getElementById('sellErrorMsg'),
+    btnConfirmSell: document.getElementById('btnConfirmSell'),
+
+    modalAdminPortfolio: document.getElementById('modalAdminPortfolio'),
+    adminPortfolioModalTitle: document.getElementById('adminPortfolioModalTitle'),
+    adminPortfolioUserEmail: document.getElementById('adminPortfolioUserEmail'),
+    adminPortfolioUserCash: document.getElementById('adminPortfolioUserCash'),
+    adminPortfolioUserTotal: document.getElementById('adminPortfolioUserTotal'),
+    adminPortfolioEmptyState: document.getElementById('adminPortfolioEmptyState'),
+    adminPortfolioTableContainer: document.getElementById('adminPortfolioTableContainer'),
+    adminPortfolioTableBody: document.getElementById('adminPortfolioTableBody')
   };
 
   // --- Başlatma (Init) ---
   function init() {
     setupEventListeners();
+    initAuth();
     initRegion();
     initChartComponent();
     renderWatchlist();
     renderMarketGrids();
     renderScreenerStrategies();
     handleHashNavigation();
+  }
+
+  // --- Kimlik Doğrulama (Firebase Auth) ---
+  function initAuth() {
+    const attach = () => {
+      window.fb.onAuthChanged((user) => {
+        state.currentUser = user;
+        updateAuthUI(user);
+      });
+    };
+    if (window.fb) {
+      attach();
+    } else {
+      window.addEventListener('firebase-ready', attach, { once: true });
+    }
+  }
+
+  function updateAuthUI(user) {
+    const isAdmin = Boolean(user && user.email === ADMIN_EMAIL);
+    dom.tabAdmin.style.display = isAdmin ? '' : 'none';
+    if (!isAdmin && state.currentScreen === 'screen-admin') {
+      switchScreen('screen-home');
+    }
+
+    if (user) {
+      dom.authNavLabel.textContent = `👤 ${user.email}`;
+      dom.authLoggedOutView.style.display = 'none';
+      dom.authLoggedInView.style.display = 'block';
+      dom.authCurrentEmail.textContent = user.email;
+      loadUserProfile(user);
+      if (isAdmin) loadAdminUsers();
+    } else {
+      dom.authNavLabel.textContent = '👤 Giriş Yap';
+      dom.authLoggedOutView.style.display = 'block';
+      dom.authLoggedInView.style.display = 'none';
+      state.userProfile = null;
+      renderPortfolioUI();
+    }
+  }
+
+  function setAuthMode(mode) {
+    state.authMode = mode;
+    dom.authErrorMsg.style.display = 'none';
+    if (mode === 'signup') {
+      dom.authModalTitle.textContent = '📝 Kayıt Ol';
+      dom.btnSubmitAuth.textContent = 'Kayıt Ol';
+      dom.btnToggleAuthMode.textContent = 'Zaten hesabın var mı? Giriş Yap';
+    } else {
+      dom.authModalTitle.textContent = '👤 Giriş Yap';
+      dom.btnSubmitAuth.textContent = 'Giriş Yap';
+      dom.btnToggleAuthMode.textContent = 'Hesabın yok mu? Kayıt Ol';
+    }
+  }
+
+  async function submitAuth() {
+    const email = dom.authEmailInput.value.trim();
+    const password = dom.authPasswordInput.value;
+    dom.authErrorMsg.style.display = 'none';
+
+    if (!email || !password) {
+      dom.authErrorMsg.textContent = 'E-posta ve şifre zorunludur.';
+      dom.authErrorMsg.style.display = 'block';
+      return;
+    }
+
+    try {
+      if (state.authMode === 'signup') {
+        const cred = await window.fb.signUp(email, password);
+        await window.fb.createUserDoc(cred.user.uid, {
+          email,
+          displayName: email.split('@')[0],
+          balanceUSD: 10000,
+          status: 'active',
+          createdAt: window.fb.serverTimestamp()
+        });
+      } else {
+        await window.fb.signIn(email, password);
+      }
+      dom.authEmailInput.value = '';
+      dom.authPasswordInput.value = '';
+      closeModal('modalAuth');
+    } catch (err) {
+      dom.authErrorMsg.textContent = translateAuthError(err.code);
+      dom.authErrorMsg.style.display = 'block';
+    }
+  }
+
+  function translateAuthError(code) {
+    const map = {
+      'auth/email-already-in-use': 'Bu e-posta zaten kayıtlı.',
+      'auth/invalid-email': 'Geçersiz e-posta adresi.',
+      'auth/weak-password': 'Şifre en az 6 karakter olmalı.',
+      'auth/invalid-credential': 'E-posta veya şifre hatalı.',
+      'auth/user-not-found': 'Kullanıcı bulunamadı.',
+      'auth/wrong-password': 'Şifre hatalı.',
+      'auth/too-many-requests': 'Çok fazla deneme yapıldı, lütfen biraz bekleyin.'
+    };
+    return map[code] || 'Bir hata oluştu, lütfen tekrar deneyin.';
+  }
+
+  // --- Admin Paneli ---
+  async function loadAdminUsers() {
+    dom.adminUsersTableBody.innerHTML = '';
+    try {
+      const snapshot = await window.fb.getAllUsers();
+      if (snapshot.empty) {
+        dom.adminUsersEmptyState.style.display = 'block';
+        return;
+      }
+      dom.adminUsersEmptyState.style.display = 'none';
+
+      const rows = [];
+      snapshot.forEach((docSnap) => {
+        const u = docSnap.data();
+        const uid = docSnap.id;
+        const isSuspended = u.status === 'suspended';
+        const createdDate = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('tr-TR') : '-';
+
+        const portfolioCount = (Array.isArray(u.portfolio) ? u.portfolio : []).length;
+        rows.push(`
+          <tr data-uid="${uid}">
+            <td>
+              <div style="font-weight: 600;">${u.displayName || '-'}</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">${u.email || '-'}</div>
+            </td>
+            <td>${createdDate}</td>
+            <td>
+              <input type="number" class="form-control admin-balance-input" data-uid="${uid}" value="${u.balanceUSD ?? 0}" style="width: 110px; padding: 6px 10px;">
+            </td>
+            <td>
+              <span style="padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; ${isSuspended ? 'background: rgba(239,68,68,0.15); color:#ef4444;' : 'background: rgba(16,185,129,0.15); color:#10b981;'}">
+                ${isSuspended ? 'Askıya Alındı' : 'Aktif'}
+              </span>
+            </td>
+            <td style="white-space: nowrap;">
+              <button class="btn-secondary" data-admin-action="view-portfolio" data-uid="${uid}" style="padding: 6px 10px; font-size: 0.78rem; color: #38bdf8;">🛒 Sepet (${portfolioCount})</button>
+              <button class="btn-secondary" data-admin-action="save-balance" data-uid="${uid}" style="padding: 6px 10px; font-size: 0.78rem;">💾 Kaydet</button>
+              <button class="btn-secondary" data-admin-action="toggle-status" data-uid="${uid}" data-current-status="${u.status || 'active'}" style="padding: 6px 10px; font-size: 0.78rem;">${isSuspended ? '✅ Aktif Et' : '⛔ Askıya Al'}</button>
+              <button class="btn-secondary" data-admin-action="delete" data-uid="${uid}" style="padding: 6px 10px; font-size: 0.78rem; color: #ef4444;">🗑️ Sil</button>
+            </td>
+          </tr>
+        `);
+      });
+      dom.adminUsersTableBody.innerHTML = rows.join('');
+    } catch (err) {
+      dom.adminUsersTableBody.innerHTML = `<tr><td colspan="5" style="color:#ef4444;">Kullanıcılar yüklenemedi: ${err.message}</td></tr>`;
+    }
+  }
+
+  async function handleAdminAction(action, uid, rowEl) {
+    try {
+      if (action === 'view-portfolio') {
+        openAdminPortfolioModal(uid);
+      } else if (action === 'save-balance') {
+        const input = rowEl.querySelector('.admin-balance-input');
+        const newBalance = parseFloat(input.value);
+        await window.fb.updateUserDoc(uid, { balanceUSD: newBalance });
+        loadAdminUsers();
+      } else if (action === 'toggle-status') {
+        const btn = rowEl.querySelector('[data-admin-action="toggle-status"]');
+        const current = btn.dataset.currentStatus;
+        const next = current === 'suspended' ? 'active' : 'suspended';
+        await window.fb.updateUserDoc(uid, { status: next });
+        loadAdminUsers();
+      } else if (action === 'delete') {
+        if (confirm('Bu kullanıcının Firestore profilini kalıcı olarak silmek istediğinize emin misiniz?')) {
+          await window.fb.deleteUserDoc(uid);
+          loadAdminUsers();
+        }
+      }
+    } catch (err) {
+      alert(`İşlem başarısız: ${err.message}`);
+    }
+  }
+
+  // --- Para Birimleri & Canlı Kur Çevrimi ---
+  const COUNTRY_CURRENCIES = {
+    'TR': { code: 'TRY', symbol: '₺', defaultRate: 34.50 },
+    'US': { code: 'USD', symbol: '$', defaultRate: 1.00 },
+    'DE': { code: 'EUR', symbol: '€', defaultRate: 0.92 },
+    'GB': { code: 'GBP', symbol: '£', defaultRate: 0.77 },
+    'JP': { code: 'JPY', symbol: '¥', defaultRate: 145.0 },
+    'CN': { code: 'CNY', symbol: '¥', defaultRate: 7.15 },
+  };
+
+  async function fetchLiveExchangeRate(currencyCode) {
+    if (currencyCode === 'USD') return 1.0;
+    if (state.liveRates[currencyCode]) return state.liveRates[currencyCode];
+
+    try {
+      const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${currencyCode}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.rates && data.rates[currencyCode]) {
+          state.liveRates[currencyCode] = data.rates[currencyCode];
+          return data.rates[currencyCode];
+        }
+      }
+    } catch (e) {
+      console.warn('Frankfurter kur çekme uyarısı, varsayılan kur kullanılıyor:', e);
+    }
+
+    const match = Object.values(COUNTRY_CURRENCIES).find(c => c.code === currencyCode);
+    const rate = match ? match.defaultRate : 34.50;
+    state.liveRates[currencyCode] = rate;
+    return rate;
+  }
+
+  // --- Kullanıcı Profili ve Portföy Verisi ---
+  async function loadUserProfile(user) {
+    if (!user) {
+      state.userProfile = null;
+      renderPortfolioUI();
+      return;
+    }
+
+    try {
+      const snap = await window.fb.getUserDoc(user.uid);
+      if (snap.exists()) {
+        const data = snap.data();
+        state.userProfile = {
+          uid: user.uid,
+          email: user.email,
+          displayName: data.displayName || user.email.split('@')[0],
+          balanceUSD: typeof data.balanceUSD === 'number' ? data.balanceUSD : 10000.0,
+          portfolio: Array.isArray(data.portfolio) ? data.portfolio : [],
+          status: data.status || 'active',
+          localCurrency: data.localCurrency || 'TRY'
+        };
+      } else {
+        const defaultProfile = {
+          email: user.email,
+          displayName: user.email.split('@')[0],
+          balanceUSD: 10000.0,
+          portfolio: [],
+          status: 'active',
+          localCurrency: 'TRY',
+          createdAt: window.fb.serverTimestamp()
+        };
+        await window.fb.createUserDoc(user.uid, defaultProfile);
+        state.userProfile = { uid: user.uid, ...defaultProfile };
+      }
+    } catch (err) {
+      console.warn('Kullanıcı profili okunurken hata veya offline mod:', err);
+      state.userProfile = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.email.split('@')[0],
+        balanceUSD: 10000.0,
+        portfolio: [],
+        status: 'active',
+        localCurrency: 'TRY'
+      };
+    }
+
+    renderPortfolioUI();
+  }
+
+  function getCurrentAssetPrice(symbol) {
+    if (state.activeAsset && state.activeAsset.symbol === symbol && state.activeAsset.price) {
+      return state.activeAsset.price;
+    }
+    const match = ASSET_UNIVERSE.find(a => a.symbol === symbol);
+    if (match) return match.basePrice;
+    return 100.0;
+  }
+
+  // --- Sepete Ekleme Modalı Mantığı ---
+  let currentModalAsset = null;
+
+  function openAddToBasketModal(asset = null) {
+    if (!state.currentUser) {
+      openModal('modalAuth');
+      return;
+    }
+
+    const targetAsset = asset || state.activeAsset;
+    if (!targetAsset) return;
+
+    currentModalAsset = targetAsset;
+    const currentPrice = targetAsset.price || targetAsset.basePrice || 100.0;
+
+    dom.basketModalSymbolBadge.textContent = targetAsset.symbol;
+    dom.basketModalAssetName.textContent = targetAsset.name;
+    dom.basketModalAssetType.textContent = targetAsset.type === 'crypto' ? 'Kripto Para' : (targetAsset.type === 'bist' ? 'BIST Hissesi' : 'Hisse Senedi');
+    dom.basketModalMarketPrice.textContent = `$${currentPrice.toFixed(2)}`;
+
+    dom.basketInputShares.value = '1';
+    dom.basketInputPrice.value = currentPrice.toFixed(2);
+    dom.basketErrorMsg.style.display = 'none';
+
+    updateBasketCalculations();
+    openModal('modalAddToBasket');
+  }
+
+  function updateBasketCalculations() {
+    const shares = parseFloat(dom.basketInputShares.value) || 0;
+    const price = parseFloat(dom.basketInputPrice.value) || 0;
+    const totalCost = shares * price;
+    const userCash = state.userProfile ? state.userProfile.balanceUSD : 10000.0;
+    const remaining = userCash - totalCost;
+
+    dom.basketCalcTotalCost.textContent = `$${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    dom.basketAvailableCash.textContent = `$${userCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    dom.basketRemainingCash.textContent = `$${remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    if (remaining < 0) {
+      dom.basketRemainingCash.style.color = '#ef4444';
+      dom.basketErrorMsg.textContent = `Yetersiz sanal bakiye! Bu alım için $${Math.abs(remaining).toFixed(2)} daha bakiyeye ihtiyacınız var.`;
+      dom.basketErrorMsg.style.display = 'block';
+      dom.btnConfirmAddToBasket.disabled = true;
+      dom.btnConfirmAddToBasket.style.opacity = '0.5';
+    } else {
+      dom.basketRemainingCash.style.color = 'var(--text-secondary)';
+      dom.basketErrorMsg.style.display = 'none';
+      dom.btnConfirmAddToBasket.disabled = false;
+      dom.btnConfirmAddToBasket.style.opacity = '1';
+    }
+  }
+
+  async function confirmAddToBasket() {
+    if (!state.currentUser || !state.userProfile || !currentModalAsset) return;
+
+    const shares = parseFloat(dom.basketInputShares.value);
+    const price = parseFloat(dom.basketInputPrice.value);
+    if (!shares || shares <= 0 || !price || price <= 0) {
+      dom.basketErrorMsg.textContent = 'Lütfen geçerli bir adet ve fiyat giriniz.';
+      dom.basketErrorMsg.style.display = 'block';
+      return;
+    }
+
+    const totalCost = shares * price;
+    if (totalCost > state.userProfile.balanceUSD) {
+      dom.basketErrorMsg.textContent = 'Yetersiz bakiye.';
+      dom.basketErrorMsg.style.display = 'block';
+      return;
+    }
+
+    dom.btnConfirmAddToBasket.disabled = true;
+    dom.btnConfirmAddToBasket.textContent = 'İşleniyor...';
+
+    try {
+      const portfolio = [...state.userProfile.portfolio];
+      const existingIdx = portfolio.findIndex(p => p.symbol === currentModalAsset.symbol);
+
+      if (existingIdx >= 0) {
+        const existing = portfolio[existingIdx];
+        const newShares = existing.shares + shares;
+        const newAvgCost = ((existing.shares * existing.avgCostUSD) + (shares * price)) / newShares;
+        portfolio[existingIdx] = {
+          ...existing,
+          shares: Number(newShares.toFixed(4)),
+          avgCostUSD: Number(newAvgCost.toFixed(2)),
+          lastUpdated: new Date().toISOString()
+        };
+      } else {
+        portfolio.push({
+          symbol: currentModalAsset.symbol,
+          name: currentModalAsset.name,
+          type: currentModalAsset.type || 'stock',
+          shares: Number(shares.toFixed(4)),
+          avgCostUSD: Number(price.toFixed(2)),
+          addedAt: new Date().toISOString()
+        });
+      }
+
+      const newBalance = Number((state.userProfile.balanceUSD - totalCost).toFixed(2));
+      state.userProfile.portfolio = portfolio;
+      state.userProfile.balanceUSD = newBalance;
+
+      await window.fb.updateUserDoc(state.currentUser.uid, {
+        portfolio,
+        balanceUSD: newBalance
+      });
+
+      closeModal('modalAddToBasket');
+      renderPortfolioUI();
+      alert(`✅ ${shares} adet ${currentModalAsset.symbol} başarıyla sepetinize eklendi!`);
+    } catch (err) {
+      dom.basketErrorMsg.textContent = `Hata: ${err.message}`;
+      dom.basketErrorMsg.style.display = 'block';
+    } finally {
+      dom.btnConfirmAddToBasket.disabled = false;
+      dom.btnConfirmAddToBasket.textContent = '🛒 Sepete Ekle & Satın Al';
+    }
+  }
+
+  // --- Sepetten Satış Modalı Mantığı ---
+  let currentSellItem = null;
+
+  function openSellFromBasketModal(symbol) {
+    if (!state.currentUser || !state.userProfile) return;
+    const item = state.userProfile.portfolio.find(p => p.symbol === symbol);
+    if (!item) return;
+
+    currentSellItem = item;
+    const currentPrice = getCurrentAssetPrice(item.symbol);
+
+    dom.sellModalSymbolBadge.textContent = item.symbol;
+    dom.sellModalAssetName.textContent = item.name;
+    dom.sellModalCurrentShares.textContent = item.shares;
+    dom.sellModalMarketPrice.textContent = `$${currentPrice.toFixed(2)}`;
+    dom.sellModalAvgCostDisplay.textContent = `$${item.avgCostUSD.toFixed(2)}`;
+
+    dom.sellInputShares.value = item.shares.toString();
+    dom.sellInputShares.max = item.shares.toString();
+    dom.sellErrorMsg.style.display = 'none';
+
+    updateSellCalculations();
+    openModal('modalSellFromBasket');
+  }
+
+  function updateSellCalculations() {
+    if (!currentSellItem) return;
+    const sharesToSell = parseFloat(dom.sellInputShares.value) || 0;
+    const currentPrice = getCurrentAssetPrice(currentSellItem.symbol);
+    const returnUSD = sharesToSell * currentPrice;
+    const costBasis = sharesToSell * currentSellItem.avgCostUSD;
+    const profitLoss = returnUSD - costBasis;
+    const profitPct = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
+
+    dom.sellCalcReturnUSD.textContent = `$${returnUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    
+    const sign = profitLoss >= 0 ? '+' : '';
+    dom.sellCalcProfitLossDisplay.textContent = `${sign}$${profitLoss.toFixed(2)} (${sign}${profitPct.toFixed(2)}%)`;
+    dom.sellCalcProfitLossDisplay.style.color = profitLoss >= 0 ? '#10b981' : '#ef4444';
+
+    if (sharesToSell <= 0 || sharesToSell > currentSellItem.shares) {
+      dom.sellErrorMsg.textContent = `Lütfen 0 ile ${currentSellItem.shares} arasında bir adet girin.`;
+      dom.sellErrorMsg.style.display = 'block';
+      dom.btnConfirmSell.disabled = true;
+      dom.btnConfirmSell.style.opacity = '0.5';
+    } else {
+      dom.sellErrorMsg.style.display = 'none';
+      dom.btnConfirmSell.disabled = false;
+      dom.btnConfirmSell.style.opacity = '1';
+    }
+  }
+
+  async function confirmSellFromBasket() {
+    if (!state.currentUser || !state.userProfile || !currentSellItem) return;
+    const sharesToSell = parseFloat(dom.sellInputShares.value);
+    if (!sharesToSell || sharesToSell <= 0 || sharesToSell > currentSellItem.shares) {
+      dom.sellErrorMsg.textContent = 'Geçersiz satış miktarı.';
+      dom.sellErrorMsg.style.display = 'block';
+      return;
+    }
+
+    dom.btnConfirmSell.disabled = true;
+    dom.btnConfirmSell.textContent = 'Satış İşleniyor...';
+
+    try {
+      const currentPrice = getCurrentAssetPrice(currentSellItem.symbol);
+      const returnUSD = Number((sharesToSell * currentPrice).toFixed(2));
+      let portfolio = [...state.userProfile.portfolio];
+
+      if (sharesToSell >= currentSellItem.shares) {
+        portfolio = portfolio.filter(p => p.symbol !== currentSellItem.symbol);
+      } else {
+        const idx = portfolio.findIndex(p => p.symbol === currentSellItem.symbol);
+        if (idx >= 0) {
+          portfolio[idx] = {
+            ...portfolio[idx],
+            shares: Number((portfolio[idx].shares - sharesToSell).toFixed(4)),
+            lastUpdated: new Date().toISOString()
+          };
+        }
+      }
+
+      const newBalance = Number((state.userProfile.balanceUSD + returnUSD).toFixed(2));
+      state.userProfile.portfolio = portfolio;
+      state.userProfile.balanceUSD = newBalance;
+
+      await window.fb.updateUserDoc(state.currentUser.uid, {
+        portfolio,
+        balanceUSD: newBalance
+      });
+
+      closeModal('modalSellFromBasket');
+      renderPortfolioUI();
+      alert(`✅ ${sharesToSell} adet ${currentSellItem.symbol} satıldı. $${returnUSD} nakit bakiyenize eklendi!`);
+    } catch (err) {
+      dom.sellErrorMsg.textContent = `Hata: ${err.message}`;
+      dom.sellErrorMsg.style.display = 'block';
+    } finally {
+      dom.btnConfirmSell.disabled = false;
+      dom.btnConfirmSell.textContent = '💰 Satışı Onayla & Nakde Çevir';
+    }
+  }
+
+  // --- Portföy ve Sepetim Ekranı Render Mantığı ---
+  async function renderPortfolioUI() {
+    if (!dom.portfolioGuestState) return;
+
+    if (!state.currentUser) {
+      dom.portfolioGuestState.style.display = 'block';
+      dom.portfolioUserState.style.display = 'none';
+      return;
+    }
+
+    dom.portfolioGuestState.style.display = 'none';
+    dom.portfolioUserState.style.display = 'block';
+
+    const profile = state.userProfile || { balanceUSD: 10000, portfolio: [] };
+    const cashUSD = profile.balanceUSD || 0;
+    const portfolio = profile.portfolio || [];
+
+    let totalAssetValueUSD = 0;
+    let totalCostBasisUSD = 0;
+
+    const rows = portfolio.map(item => {
+      const curPrice = getCurrentAssetPrice(item.symbol);
+      const marketVal = item.shares * curPrice;
+      const costVal = item.shares * item.avgCostUSD;
+      const profitVal = marketVal - costVal;
+      const profitPct = costVal > 0 ? (profitVal / costVal) * 100 : 0;
+      const isProfitable = profitVal >= 0;
+      const sign = isProfitable ? '+' : '';
+
+      totalAssetValueUSD += marketVal;
+      totalCostBasisUSD += costVal;
+
+      const typeBadge = item.type === 'crypto' 
+        ? '<span class="badge-type crypto">Kripto</span>'
+        : (item.type === 'bist' 
+            ? '<span class="badge-type bist">BIST</span>'
+            : '<span class="badge-type stock">Hisse</span>');
+
+      return `
+        <tr>
+          <td>
+            <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">${item.symbol}</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">${item.name}</div>
+          </td>
+          <td>${typeBadge}</td>
+          <td style="font-weight: 600;">${item.shares}</td>
+          <td>$${item.avgCostUSD.toFixed(2)}</td>
+          <td style="font-weight: 600;">$${curPrice.toFixed(2)}</td>
+          <td style="font-weight: 700; color: #fff;">$${marketVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td>
+            <span class="change-pill ${isProfitable ? 'bullish' : 'bearish'}">
+              ${sign}$${profitVal.toFixed(2)} (${sign}${profitPct.toFixed(2)}%)
+            </span>
+          </td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn-secondary" data-portfolio-action="chart" data-symbol="${item.symbol}" style="padding: 5px 10px; font-size: 0.75rem; margin-right: 4px;">📊 Grafik</button>
+            <button class="btn-secondary" data-portfolio-action="buy-more" data-symbol="${item.symbol}" style="padding: 5px 10px; font-size: 0.75rem; margin-right: 4px; color: var(--color-primary);">🛒 Ekle</button>
+            <button class="btn-secondary" data-portfolio-action="sell" data-symbol="${item.symbol}" style="padding: 5px 10px; font-size: 0.75rem; color: #ef4444;">💰 Sat</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    const totalPortfolioUSD = cashUSD + totalAssetValueUSD;
+    const totalProfitUSD = totalPortfolioUSD - 10000.0;
+    const totalProfitPct = (totalProfitUSD / 10000.0) * 100;
+    const isOverallProfit = totalProfitUSD >= 0;
+    const sign = isOverallProfit ? '+' : '';
+
+    dom.portfolioTotalValueUSD.textContent = `$${totalPortfolioUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    
+    // Canlı kur ile yerel para çevrimi
+    const currentCountry = state.currentRegion || 'TR';
+    const currencyInfo = COUNTRY_CURRENCIES[currentCountry] || COUNTRY_CURRENCIES['TR'];
+    const rate = await fetchLiveExchangeRate(currencyInfo.code);
+    const localVal = totalPortfolioUSD * rate;
+    dom.portfolioTotalValueLocal.textContent = `≈ ${localVal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ${currencyInfo.symbol} (${currencyInfo.code})`;
+
+    dom.portfolioCashUSD.textContent = `$${cashUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    dom.portfolioProfitLossUSD.textContent = `${sign}$${totalProfitUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    dom.portfolioProfitLossUSD.style.color = isOverallProfit ? '#10b981' : '#ef4444';
+    dom.portfolioProfitLossPct.textContent = `${sign}${totalProfitPct.toFixed(2)}%`;
+    dom.portfolioProfitLossPct.style.color = isOverallProfit ? '#10b981' : '#ef4444';
+    dom.portfolioAssetCount.textContent = `${portfolio.length} Varlık`;
+
+    if (portfolio.length === 0) {
+      dom.portfolioEmptyState.style.display = 'block';
+      dom.portfolioTableContainer.style.display = 'none';
+    } else {
+      dom.portfolioEmptyState.style.display = 'none';
+      dom.portfolioTableContainer.style.display = 'block';
+      dom.portfolioTableBody.innerHTML = rows.join('');
+    }
+  }
+
+  // --- Admin Paneli: Kullanıcı Sepeti İnceleme ---
+  async function openAdminPortfolioModal(uid) {
+    try {
+      const snap = await window.fb.getUserDoc(uid);
+      if (!snap.exists()) {
+        alert('Kullanıcı bulunamadı.');
+        return;
+      }
+      const u = snap.data();
+      const portfolio = Array.isArray(u.portfolio) ? u.portfolio : [];
+      const cash = u.balanceUSD ?? 10000;
+
+      dom.adminPortfolioUserEmail.textContent = u.email || uid;
+      dom.adminPortfolioUserCash.textContent = `$${cash.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+      let totalVal = cash;
+      const rows = portfolio.map(item => {
+        const curPrice = getCurrentAssetPrice(item.symbol);
+        const mVal = item.shares * curPrice;
+        const cVal = item.shares * item.avgCostUSD;
+        const pVal = mVal - cVal;
+        const pPct = cVal > 0 ? (pVal / cVal) * 100 : 0;
+        const isProf = pVal >= 0;
+        const sign = isProf ? '+' : '';
+        totalVal += mVal;
+
+        return `
+          <tr>
+            <td><strong>${item.symbol}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${item.name})</span></td>
+            <td>${item.shares}</td>
+            <td>$${item.avgCostUSD.toFixed(2)}</td>
+            <td>$${curPrice.toFixed(2)}</td>
+            <td style="font-weight:600;">$${mVal.toFixed(2)}</td>
+            <td style="color: ${isProf ? '#10b981' : '#ef4444'}; font-weight:600;">${sign}$${pVal.toFixed(2)} (${sign}${pPct.toFixed(1)}%)</td>
+          </tr>
+        `;
+      });
+
+      dom.adminPortfolioUserTotal.textContent = `$${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+      if (portfolio.length === 0) {
+        dom.adminPortfolioEmptyState.style.display = 'block';
+        dom.adminPortfolioTableContainer.style.display = 'none';
+      } else {
+        dom.adminPortfolioEmptyState.style.display = 'none';
+        dom.adminPortfolioTableContainer.style.display = 'block';
+        dom.adminPortfolioTableBody.innerHTML = rows.join('');
+      }
+
+      openModal('modalAdminPortfolio');
+    } catch (err) {
+      alert(`Portföy yüklenirken hata: ${err.message}`);
+    }
   }
 
   // --- Sekme & Ekran Yönlendirmesi ---
@@ -181,6 +904,11 @@
     // Ekran 3 (AI) açıldığında başlığı güncelle
     if (screenId === 'screen-ai') {
       dom.aiTargetAssetName.textContent = `${state.activeAsset.name} (${state.activeAsset.symbol})`;
+    }
+
+    // Ekran 5 (Portföy & Sepetim) açıldığında güncelle
+    if (screenId === 'screen-portfolio') {
+      renderPortfolioUI();
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -754,6 +1482,8 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
       renderRegionOptions();
     } else if (modalId === 'modalSettings') {
       dom.workerUrlInput.value = state.workerUrl;
+    } else if (modalId === 'modalAuth' && !state.currentUser) {
+      setAuthMode('login');
     }
   }
 
@@ -926,6 +1656,111 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
     dom.btnOpenRegionModal.addEventListener('click', () => openModal('modalRegion'));
     dom.btnOpenSettingsModal.addEventListener('click', () => openModal('modalSettings'));
     dom.btnOpenLegalModal.addEventListener('click', () => openModal('modalLegal'));
+    dom.btnOpenAuthModal.addEventListener('click', () => openModal('modalAuth'));
+
+    // Auth Modu Değiştirme (Giriş <-> Kayıt)
+    dom.btnToggleAuthMode.addEventListener('click', () => {
+      setAuthMode(state.authMode === 'login' ? 'signup' : 'login');
+    });
+
+    // Giriş / Kayıt Gönderimi
+    dom.btnSubmitAuth.addEventListener('click', () => submitAuth());
+    dom.authPasswordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitAuth();
+    });
+
+    // Çıkış Yap
+    dom.btnSignOut.addEventListener('click', async () => {
+      await window.fb.signOut();
+      closeModal('modalAuth');
+    });
+
+    // Admin: Kullanıcıları Yenile
+    dom.btnRefreshUsers.addEventListener('click', () => loadAdminUsers());
+
+    // --- Portföy & Sepetim Event Dinleyicileri ---
+    if (dom.btnOpenAddToBasketModal) {
+      dom.btnOpenAddToBasketModal.addEventListener('click', () => openAddToBasketModal());
+    }
+
+    if (dom.btnPortfolioExploreMarkets) {
+      dom.btnPortfolioExploreMarkets.addEventListener('click', () => switchScreen('screen-home'));
+    }
+
+    if (dom.btnPortfolioLoginPrompt) {
+      dom.btnPortfolioLoginPrompt.addEventListener('click', () => openModal('modalAuth'));
+    }
+
+    if (dom.btnPortfolioEmptyExplore) {
+      dom.btnPortfolioEmptyExplore.addEventListener('click', () => switchScreen('screen-home'));
+    }
+
+    // Sepete Ekle Modalı Dinleyicileri
+    if (dom.basketInputShares) {
+      dom.basketInputShares.addEventListener('input', updateBasketCalculations);
+    }
+    if (dom.basketInputPrice) {
+      dom.basketInputPrice.addEventListener('input', updateBasketCalculations);
+    }
+    document.querySelectorAll('.btn-quick-qty').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const qty = btn.dataset.qty;
+        if (dom.basketInputShares) {
+          dom.basketInputShares.value = qty;
+          updateBasketCalculations();
+        }
+      });
+    });
+    if (dom.btnConfirmAddToBasket) {
+      dom.btnConfirmAddToBasket.addEventListener('click', confirmAddToBasket);
+    }
+
+    // Satış Modalı Dinleyicileri
+    if (dom.sellInputShares) {
+      dom.sellInputShares.addEventListener('input', updateSellCalculations);
+    }
+    document.querySelectorAll('.btn-quick-sell').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!currentSellItem) return;
+        const pct = parseFloat(btn.dataset.pct) || 100;
+        const qty = Number(((currentSellItem.shares * pct) / 100).toFixed(4));
+        if (dom.sellInputShares) {
+          dom.sellInputShares.value = qty.toString();
+          updateSellCalculations();
+        }
+      });
+    });
+    if (dom.btnConfirmSell) {
+      dom.btnConfirmSell.addEventListener('click', confirmSellFromBasket);
+    }
+
+    // Portföy Tablosu Aksiyonları (Event Delegation)
+    if (dom.portfolioTableBody) {
+      dom.portfolioTableBody.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-portfolio-action]');
+        if (!btn) return;
+        const action = btn.dataset.portfolioAction;
+        const symbol = btn.dataset.symbol;
+
+        if (action === 'chart') {
+          selectAsset(symbol);
+          switchScreen('screen-detail');
+        } else if (action === 'buy-more') {
+          const match = ASSET_UNIVERSE.find(a => a.symbol === symbol) || { symbol, name: symbol, type: 'stock', basePrice: 100 };
+          openAddToBasketModal(match);
+        } else if (action === 'sell') {
+          openSellFromBasketModal(symbol);
+        }
+      });
+    }
+
+    // Admin: Tablo İçi Aksiyonlar (Event Delegation)
+    dom.adminUsersTableBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-admin-action]');
+      if (btn) {
+        handleAdminAction(btn.dataset.adminAction, btn.dataset.uid, btn.closest('tr'));
+      }
+    });
 
     // Modalları Kapatma
     document.querySelectorAll('[data-close-modal]').forEach(btn => {

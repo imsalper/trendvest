@@ -294,7 +294,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt) {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt }
@@ -304,7 +304,7 @@ async function callAnthropic(apiKey, systemPrompt, userPrompt) {
   });
 
   const data = await res.json();
-  return data.content?.[0]?.text || 'Analiz üretilemedi.';
+  return data.content?.[0]?.text || data.error?.message || 'Analiz üretilemedi.';
 }
 
 function generateRuleBasedSummary(asset, technicals) {
