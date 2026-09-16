@@ -101,13 +101,13 @@
 
       <!-- Arama Bölümü -->
       <div class="hero-search-section">
-        <h2 class="hero-title">Piyasaları Keşfet, <span class="gradient-text">Veriyle Analiz Et</span></h2>
-        <p class="hero-subtitle">Hisse senedi (ABD, Global, BIST) ve kripto para sembollerini birlikte arayın</p>
+        <h2 class="hero-title">BIST 10 Piyasalarını <span class="gradient-text">Veriyle Analiz Et</span></h2>
+        <p class="hero-subtitle">Borsa İstanbul'un lokomotif şirketlerini anlık takip edin, teknik indikatörler ve yapay zeka ile inceleyin</p>
 
         <div class="search-bar-wrapper">
           <div class="search-input-group">
             <span class="search-icon">🔍</span>
-            <input type="text" id="globalSearchInput" class="search-input" placeholder="Hisse veya kripto ara (Örn: AAPL, BTC, THYAO, NVDA)..." autocomplete="off">
+            <input type="text" id="globalSearchInput" class="search-input" placeholder="BIST hissesi ara (Örn: THYAO, AKBNK, GARAN, EREGL, ASELS)..." autocomplete="off">
             <button class="search-clear-btn" id="btnSearchClear">✕</button>
           </div>
 
@@ -115,16 +115,18 @@
           <div class="search-dropdown" id="searchDropdown"></div>
         </div>
 
-        <!-- Hızlı Kısayollar -->
+        <!-- Hızlı Kısayollar: BIST 10 -->
         <div class="quick-chips">
-          <span class="quick-chip" data-symbol="AAPL" data-type="stock">AAPL (Apple)</span>
-          <span class="quick-chip" data-symbol="NVDA" data-type="stock">NVDA (NVIDIA)</span>
-          <span class="quick-chip" data-symbol="TSLA" data-type="stock">TSLA (Tesla)</span>
-          <span class="quick-chip" data-symbol="BTC" data-type="crypto">BTC (Bitcoin)</span>
-          <span class="quick-chip" data-symbol="ETH" data-type="crypto">ETH (Ethereum)</span>
-          <span class="quick-chip" data-symbol="SOL" data-type="crypto">SOL (Solana)</span>
           <span class="quick-chip" data-symbol="THYAO" data-type="bist">THYAO (THY)</span>
+          <span class="quick-chip" data-symbol="AKBNK" data-type="bist">AKBNK (Akbank)</span>
           <span class="quick-chip" data-symbol="GARAN" data-type="bist">GARAN (Garanti)</span>
+          <span class="quick-chip" data-symbol="EREGL" data-type="bist">EREGL (Ereğli)</span>
+          <span class="quick-chip" data-symbol="ASELS" data-type="bist">ASELS (Aselsan)</span>
+          <span class="quick-chip" data-symbol="KCHOL" data-type="bist">KCHOL (Koç Holding)</span>
+          <span class="quick-chip" data-symbol="ISCTR" data-type="bist">ISCTR (İş Bankası)</span>
+          <span class="quick-chip" data-symbol="TUPRS" data-type="bist">TUPRS (Tüpraş)</span>
+          <span class="quick-chip" data-symbol="SAHOL" data-type="bist">SAHOL (Sabancı)</span>
+          <span class="quick-chip" data-symbol="BIMAS" data-type="bist">BIMAS (BİM)</span>
         </div>
       </div>
 
@@ -139,27 +141,19 @@
         </div>
       </div>
 
-      <!-- Bölgesel Öne Çıkanlar (Örn: BIST veya NASDAQ) -->
+      <!-- BIST 10 Lokomotif Hisseleri -->
       <div class="regional-section">
         <div class="section-header">
-          <h3 class="section-title" id="regionalSectionTitle">📍 Bölgesel Borsa Öne Çıkanları</h3>
-          <span style="font-size: 0.82rem; color: var(--text-secondary);">Anlık Fiyat & Trend</span>
+          <h3 class="section-title" id="regionalSectionTitle">🇹🇷 BIST 10 Lokomotif Hisseleri</h3>
+          <span style="font-size: 0.82rem; color: var(--text-secondary);">Borsa İstanbul Piyasa Değeri En Yüksek 10 Hisse</span>
         </div>
         <div class="asset-grid" id="regionalGrid">
-          <!-- Dinamik bölgesel kartlar -->
+          <!-- Dinamik BIST 10 kartları -->
         </div>
       </div>
 
-      <!-- Global Liderler & Kripto Dünyası -->
-      <div class="global-crypto-section">
-        <div class="section-header">
-          <h3 class="section-title">🌐 Global Devler & Popüler Kriptolar</h3>
-          <span style="font-size: 0.82rem; color: var(--text-secondary);">Yüksek Hacimli Varlıklar</span>
-        </div>
-        <div class="asset-grid" id="globalGrid">
-          <!-- Dinamik global kartlar -->
-        </div>
-      </div>
+      <!-- Gizli Konteyner (JS bütünlüğü için) -->
+      <div id="globalGrid" style="display: none;"></div>
 
     </section>
 
@@ -172,14 +166,14 @@
       <div class="detail-header-card">
         <div class="detail-top-bar">
           <div class="detail-asset-info">
-            <div class="detail-symbol-box" id="detailSymbolBadge">AAPL</div>
+            <div class="detail-symbol-box" id="detailSymbolBadge">THYAO</div>
             <div class="detail-title-group">
               <h2>
-                <span id="detailAssetName">Apple Inc.</span>
-                <span class="detail-market-badge" id="detailExchangeBadge">NASDAQ</span>
+                <span id="detailAssetName">Türk Hava Yolları</span>
+                <span class="detail-market-badge" id="detailExchangeBadge">BIST</span>
               </h2>
               <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
-                <span id="detailAssetType" style="font-size: 0.8rem; color: var(--text-muted);">Hisse Senedi</span>
+                <span id="detailAssetType" style="font-size: 0.8rem; color: var(--text-muted);">BIST Hissesi</span>
                 <span>•</span>
                 <span id="detailTrendDirectionBadge" class="asset-trend-tag tag-bullish">Yükseliş Trendi 🚀</span>
               </div>
@@ -188,10 +182,10 @@
 
           <div style="display: flex; align-items: center; gap: 20px;">
             <div class="detail-price-box">
-              <div class="detail-price-main" id="detailCurrentPrice">$224.50</div>
+              <div class="detail-price-main" id="detailCurrentPrice">₺304.50</div>
               <div class="detail-changes-row">
-                <span class="change-pill bullish" id="detailChange24h">+2.45%</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted);" id="detailPriceDiff">+$5.38 Bugün</span>
+                <span class="change-pill bullish" id="detailChange24h">+3.20%</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);" id="detailPriceDiff">+₺9.74 Bugün</span>
               </div>
             </div>
 
@@ -594,15 +588,15 @@
       <!-- Varlık Özet Bilgi Kutusu -->
       <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <div id="basketModalSymbolBadge" style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.15); color: var(--color-primary); font-weight: 700; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">AAPL</div>
+          <div id="basketModalSymbolBadge" style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.15); color: var(--color-primary); font-weight: 700; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem;">THYAO</div>
           <div>
-            <div id="basketModalAssetName" style="font-weight: 600; font-size: 0.95rem;">Apple Inc.</div>
-            <div id="basketModalAssetType" style="font-size: 0.75rem; color: var(--text-muted);">Hisse Senedi</div>
+            <div id="basketModalAssetName" style="font-weight: 600; font-size: 0.95rem;">Türk Hava Yolları</div>
+            <div id="basketModalAssetType" style="font-size: 0.75rem; color: var(--text-muted);">BIST Hissesi</div>
           </div>
         </div>
         <div style="text-align: right;">
           <div style="font-size: 0.75rem; color: var(--text-muted);">Piyasa Fiyatı</div>
-          <div id="basketModalMarketPrice" style="font-size: 1.1rem; font-weight: 700; color: #fff;">$224.50</div>
+          <div id="basketModalMarketPrice" style="font-size: 1.1rem; font-weight: 700; color: #fff;">₺304.50</div>
         </div>
       </div>
 
@@ -618,7 +612,7 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Birim Alış Fiyatı (USD)</label>
+        <label class="form-label">Birim Alış Fiyatı (TL / USD)</label>
         <input type="number" id="basketInputPrice" class="form-control" step="any">
         <div class="form-hint">Varsayılan anlık fiyattır, dilediğiniz maliyeti girebilirsiniz.</div>
       </div>
@@ -627,7 +621,7 @@
       <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;">
           <span style="color: var(--text-secondary);">Toplam Alım Tutarı:</span>
-          <strong id="basketCalcTotalCost" style="color: #fff; font-size: 1rem;">$224.50</strong>
+          <strong id="basketCalcTotalCost" style="color: #fff; font-size: 1rem;">₺304.50</strong>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
           <span style="color: var(--text-muted);">Kullanılabilir Sanal Nakit:</span>

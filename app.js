@@ -15,7 +15,37 @@
   };
 
   // --- Yönetici E-postası (Admin Paneline erişim tek bu hesapla) ---
-  const ADMIN_EMAIL = 'imsalper@gmail.com';
+    // --- 10 Lokomotif BIST Şirketi (BIST 10) ve Örnek Varlık Havuzu ---
+  const BIST_10_SYMBOLS = ['THYAO', 'AKBNK', 'GARAN', 'EREGL', 'ASELS', 'KCHOL', 'ISCTR', 'TUPRS', 'SAHOL', 'BIMAS'];
+
+  const ASSET_UNIVERSE = [
+    // 🇹🇷 BIST 10 Lokomotif Hisseleri
+    { symbol: 'THYAO', name: 'Türk Hava Yolları', type: 'bist', exchange: 'BIST', basePrice: 304.50, change24h: 3.20, volume: 42000000, rsi: 64.1, sma20: 294.0, sma50: 286.0, volumeRatio: 1.70 },
+    { symbol: 'AKBNK', name: 'Akbank T.A.Ş.', type: 'bist', exchange: 'BIST', basePrice: 58.40, change24h: 1.10, volume: 36000000, rsi: 51.2, sma20: 57.5, sma50: 56.8, volumeRatio: 1.05 },
+    { symbol: 'GARAN', name: 'Garanti BBVA', type: 'bist', exchange: 'BIST', basePrice: 114.20, change24h: -0.90, volume: 31000000, rsi: 33.5, sma20: 118.0, sma50: 120.5, volumeRatio: 0.95 },
+    { symbol: 'EREGL', name: 'Ereğli Demir Çelik', type: 'bist', exchange: 'BIST', basePrice: 51.10, change24h: -2.30, volume: 29000000, rsi: 31.0, sma20: 53.5, sma50: 55.0, volumeRatio: 1.15 },
+    { symbol: 'ASELS', name: 'Aselsan Elektronik', type: 'bist', exchange: 'BIST', basePrice: 62.80, change24h: 2.10, volume: 25000000, rsi: 57.0, sma20: 60.5, sma50: 59.0, volumeRatio: 1.30 },
+    { symbol: 'KCHOL', name: 'Koç Holding', type: 'bist', exchange: 'BIST', basePrice: 215.00, change24h: 0.45, volume: 18000000, rsi: 49.0, sma20: 214.0, sma50: 212.0, volumeRatio: 0.90 },
+    { symbol: 'ISCTR', name: 'Türkiye İş Bankası (C)', type: 'bist', exchange: 'BIST', basePrice: 13.85, change24h: 1.45, volume: 55000000, rsi: 54.2, sma20: 13.4, sma50: 13.1, volumeRatio: 1.25 },
+    { symbol: 'TUPRS', name: 'Tüpraş', type: 'bist', exchange: 'BIST', basePrice: 168.20, change24h: 2.80, volume: 22000000, rsi: 62.8, sma20: 162.0, sma50: 158.0, volumeRatio: 1.40 },
+    { symbol: 'SAHOL', name: 'Sabancı Holding', type: 'bist', exchange: 'BIST', basePrice: 94.50, change24h: 0.75, volume: 20000000, rsi: 48.6, sma20: 93.0, sma50: 91.5, volumeRatio: 0.88 },
+    { symbol: 'BIMAS', name: 'BİM Birleşik Mağazalar', type: 'bist', exchange: 'BIST', basePrice: 485.00, change24h: -0.60, volume: 15000000, rsi: 43.1, sma20: 492.0, sma50: 498.0, volumeRatio: 0.92 },
+
+    // ABD Hisseleri (İkincil arama / referans)
+    { symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 224.50, change24h: 2.45, volume: 52000000, rsi: 58.4, sma20: 218.2, sma50: 210.5, volumeRatio: 1.15 },
+    { symbol: 'NVDA', name: 'NVIDIA Corporation', type: 'stock', exchange: 'NASDAQ', basePrice: 118.80, change24h: 4.80, volume: 88000000, rsi: 66.2, sma20: 112.5, sma50: 104.0, volumeRatio: 1.65 },
+    { symbol: 'TSLA', name: 'Tesla Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 242.10, change24h: -1.85, volume: 64000000, rsi: 34.2, sma20: 248.0, sma50: 254.0, volumeRatio: 1.10 },
+    { symbol: 'MSFT', name: 'Microsoft Corp.', type: 'stock', exchange: 'NASDAQ', basePrice: 432.00, change24h: 0.85, volume: 21000000, rsi: 52.0, sma20: 428.0, sma50: 424.0, volumeRatio: 0.95 },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 186.40, change24h: 1.60, volume: 38000000, rsi: 59.8, sma20: 181.0, sma50: 178.0, volumeRatio: 1.20 },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 162.20, change24h: -0.40, volume: 24000000, rsi: 48.5, sma20: 164.0, sma50: 166.0, volumeRatio: 0.85 },
+
+    // Kripto Paralar (İkincil arama / referans)
+    { symbol: 'BTC', name: 'Bitcoin', type: 'crypto', exchange: 'Global Crypto', basePrice: 63850, change24h: 2.85, volume: 32000000000, rsi: 61.5, sma20: 60500, sma50: 58900, volumeRatio: 1.45 },
+    { symbol: 'ETH', name: 'Ethereum', type: 'crypto', exchange: 'Global Crypto', basePrice: 2540, change24h: -0.65, volume: 16500000000, rsi: 36.8, sma20: 2580, sma50: 2640, volumeRatio: 1.05 },
+    { symbol: 'SOL', name: 'Solana', type: 'crypto', exchange: 'Global Crypto', basePrice: 152.40, change24h: 5.40, volume: 4800000000, rsi: 68.4, sma20: 142.0, sma50: 134.0, volumeRatio: 1.85 },
+    { symbol: 'AVAX', name: 'Avalanche', type: 'crypto', exchange: 'Global Crypto', basePrice: 28.60, change24h: 3.10, volume: 650000000, rsi: 54.0, sma20: 26.8, sma50: 25.5, volumeRatio: 1.35 },
+    { symbol: 'BNB', name: 'BNB Chain', type: 'crypto', exchange: 'Global Crypto', basePrice: 578.00, change24h: 0.20, volume: 1100000000, rsi: 50.2, sma20: 572.0, sma50: 565.0, volumeRatio: 0.88 }
+  ];
 
   // --- Varsayılan Yapılandırma & Durum (State) ---
   const state = {
@@ -25,18 +55,31 @@
     authMode: 'login', // 'login' | 'signup'
     workerUrl: localStorage.getItem('trendvest_worker_url') || 'https://trendvest-proxy.imsalper.workers.dev',
     currentScreen: 'screen-home',
-    currentRegion: localStorage.getItem('trendvest_region') || 'TR',
-    watchlist: JSON.parse(localStorage.getItem('trendvest_watchlist') || '["AAPL", "NVDA", "BTC", "ETH", "THYAO"]'),
+    currentRegion: 'TR',
+    watchlist: (() => {
+      try {
+        const raw = localStorage.getItem('trendvest_watchlist');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const bistOnly = parsed.filter(s => BIST_10_SYMBOLS.includes(s));
+            if (bistOnly.length > 0) return bistOnly;
+          }
+        }
+      } catch (e) {}
+      return ['THYAO', 'AKBNK', 'GARAN', 'EREGL', 'ASELS'];
+    })(),
     activeAsset: {
-      symbol: 'AAPL',
-      name: 'Apple Inc.',
-      type: 'stock', // 'stock' | 'crypto' | 'bist'
-      exchange: 'NASDAQ',
-      price: 224.50,
-      change24h: 2.45,
-      high24h: 226.10,
-      low24h: 221.80,
-      volume: 48500000,
+      symbol: 'THYAO',
+      name: 'Türk Hava Yolları',
+      type: 'bist',
+      exchange: 'BIST',
+      price: 304.50,
+      basePrice: 304.50,
+      change24h: 3.20,
+      high24h: 308.20,
+      low24h: 298.50,
+      volume: 42000000,
       candles: []
     },
     currentTimeframe: '1M',
@@ -44,32 +87,6 @@
     cachedMarketData: new Map(),
     activeStrategyId: 'oversold_bounce'
   };
-
-  // --- Örnek Geniş Varlık Havuzu (Yerel Simülasyon ve Hızlı Tarama İçin) ---
-  const ASSET_UNIVERSE = [
-    // ABD Hisseleri
-    { symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 224.50, change24h: 2.45, volume: 52000000, rsi: 58.4, sma20: 218.2, sma50: 210.5, volumeRatio: 1.15 },
-    { symbol: 'NVDA', name: 'NVIDIA Corporation', type: 'stock', exchange: 'NASDAQ', basePrice: 118.80, change24h: 4.80, volume: 88000000, rsi: 66.2, sma20: 112.5, sma50: 104.0, volumeRatio: 1.65 },
-    { symbol: 'TSLA', name: 'Tesla Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 242.10, change24h: -1.85, volume: 64000000, rsi: 34.2, sma20: 248.0, sma50: 254.0, volumeRatio: 1.10 },
-    { symbol: 'MSFT', name: 'Microsoft Corp.', type: 'stock', exchange: 'NASDAQ', basePrice: 432.00, change24h: 0.85, volume: 21000000, rsi: 52.0, sma20: 428.0, sma50: 424.0, volumeRatio: 0.95 },
-    { symbol: 'AMZN', name: 'Amazon.com Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 186.40, change24h: 1.60, volume: 38000000, rsi: 59.8, sma20: 181.0, sma50: 178.0, volumeRatio: 1.20 },
-    { symbol: 'GOOGL', name: 'Alphabet Inc.', type: 'stock', exchange: 'NASDAQ', basePrice: 162.20, change24h: -0.40, volume: 24000000, rsi: 48.5, sma20: 164.0, sma50: 166.0, volumeRatio: 0.85 },
-    
-    // BIST Hisseleri
-    { symbol: 'THYAO', name: 'Türk Hava Yolları', type: 'bist', exchange: 'BIST', basePrice: 304.50, change24h: 3.20, volume: 42000000, rsi: 64.1, sma20: 294.0, sma50: 286.0, volumeRatio: 1.70 },
-    { symbol: 'GARAN', name: 'Garanti BBVA', type: 'bist', exchange: 'BIST', basePrice: 114.20, change24h: -0.90, volume: 31000000, rsi: 33.5, sma20: 118.0, sma50: 120.5, volumeRatio: 0.95 },
-    { symbol: 'AKBNK', name: 'Akbank T.A.Ş.', type: 'bist', exchange: 'BIST', basePrice: 58.40, change24h: 1.10, volume: 36000000, rsi: 51.2, sma20: 57.5, sma50: 56.8, volumeRatio: 1.05 },
-    { symbol: 'EREGL', name: 'Ereğli Demir Çelik', type: 'bist', exchange: 'BIST', basePrice: 51.10, change24h: -2.30, volume: 29000000, rsi: 31.0, sma20: 53.5, sma50: 55.0, volumeRatio: 1.15 },
-    { symbol: 'ASELS', name: 'Aselsan Elektronik', type: 'bist', exchange: 'BIST', basePrice: 62.80, change24h: 2.10, volume: 25000000, rsi: 57.0, sma20: 60.5, sma50: 59.0, volumeRatio: 1.30 },
-    { symbol: 'KCHOL', name: 'Koç Holding', type: 'bist', exchange: 'BIST', basePrice: 215.00, change24h: 0.45, volume: 18000000, rsi: 49.0, sma20: 214.0, sma50: 212.0, volumeRatio: 0.90 },
-
-    // Kripto Paralar
-    { symbol: 'BTC', name: 'Bitcoin', type: 'crypto', exchange: 'Global Crypto', basePrice: 63850, change24h: 2.85, volume: 32000000000, rsi: 61.5, sma20: 60500, sma50: 58900, volumeRatio: 1.45 },
-    { symbol: 'ETH', name: 'Ethereum', type: 'crypto', exchange: 'Global Crypto', basePrice: 2540, change24h: -0.65, volume: 16500000000, rsi: 36.8, sma20: 2580, sma50: 2640, volumeRatio: 1.05 },
-    { symbol: 'SOL', name: 'Solana', type: 'crypto', exchange: 'Global Crypto', basePrice: 152.40, change24h: 5.40, volume: 4800000000, rsi: 68.4, sma20: 142.0, sma50: 134.0, volumeRatio: 1.85 },
-    { symbol: 'AVAX', name: 'Avalanche', type: 'crypto', exchange: 'Global Crypto', basePrice: 28.60, change24h: 3.10, volume: 650000000, rsi: 54.0, sma20: 26.8, sma50: 25.5, volumeRatio: 1.35 },
-    { symbol: 'BNB', name: 'BNB Chain', type: 'crypto', exchange: 'Global Crypto', basePrice: 578.00, change24h: 0.20, volume: 1100000000, rsi: 50.2, sma20: 572.0, sma50: 565.0, volumeRatio: 0.88 }
-  ];
 
   // --- DOM Elementleri Önbelleği ---
   const dom = {
@@ -942,17 +959,17 @@
   }
 
   function setRegion(countryCode) {
-    const exchange = COUNTRY_EXCHANGES[countryCode] || COUNTRY_EXCHANGES['US'];
+    const exchange = COUNTRY_EXCHANGES[countryCode] || COUNTRY_EXCHANGES['TR'];
     state.currentRegion = exchange.code;
     localStorage.setItem('trendvest_region', exchange.code);
 
     dom.currentRegionFlag.textContent = exchange.flag;
     dom.currentRegionName.textContent = exchange.name;
 
-    // BIST uyarısı kontrolü
+    // BIST uyarısı ve başlık kontrolü
     if (exchange.code === 'TR') {
       dom.bistNoticeBanner.style.display = 'flex';
-      dom.regionalSectionTitle.textContent = `📍 Borsa İstanbul (BIST) Öne Çıkanlar`;
+      dom.regionalSectionTitle.textContent = `🇹🇷 BIST 10 Lokomotif Hisseleri`;
     } else {
       dom.bistNoticeBanner.style.display = 'none';
       dom.regionalSectionTitle.textContent = `📍 ${exchange.fullName} Öne Çıkanlar`;
@@ -970,7 +987,7 @@
   }
 
   // --- Varlık Detayı Yükleme (Chart, Metrikler, Profil, Haberler) ---
-  async function loadAssetDetail(symbol, type = 'stock') {
+  async function loadAssetDetail(symbol, type = 'bist') {
     let asset = ASSET_UNIVERSE.find(a => a.symbol === symbol) || {
       symbol,
       name: symbol,
@@ -982,18 +999,19 @@
     };
 
     state.activeAsset = { ...asset };
+    const curSymbol = asset.type === 'bist' ? '₺' : '$';
 
     // Başlık ve Rozetleri Güncelle
     dom.detailSymbolBadge.textContent = asset.symbol;
     dom.detailAssetName.textContent = asset.name;
     dom.detailExchangeBadge.textContent = asset.exchange;
-    dom.detailAssetType.textContent = asset.type === 'crypto' ? 'Kripto Para' : 'Hisse Senedi';
-    dom.detailCurrentPrice.textContent = `$${asset.basePrice.toLocaleString()}`;
+    dom.detailAssetType.textContent = asset.type === 'bist' ? 'BIST Hissesi' : (asset.type === 'crypto' ? 'Kripto Para' : 'Hisse Senedi');
+    dom.detailCurrentPrice.textContent = `${curSymbol}${asset.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     
     const isBullish = asset.change24h >= 0;
     dom.detailChange24h.className = `change-pill ${isBullish ? 'bullish' : 'bearish'}`;
     dom.detailChange24h.textContent = `${isBullish ? '+' : ''}${asset.change24h.toFixed(2)}%`;
-    dom.detailPriceDiff.textContent = `${isBullish ? '+' : ''}$${((asset.basePrice * asset.change24h) / 100).toFixed(2)} 24s`;
+    dom.detailPriceDiff.textContent = `${isBullish ? '+' : ''}${curSymbol}${((asset.basePrice * asset.change24h) / 100).toFixed(2)} Bugün`;
 
     // Favori Yıldızını Güncelle
     const isFav = state.watchlist.includes(asset.symbol);
@@ -1108,12 +1126,13 @@
 
   // --- Şirket / Varlık Profili ve Haberler ---
   function renderAssetProfileAndNews(asset) {
+    const cur = asset.type === 'bist' ? '₺' : '$';
     // Profil Alanı
     dom.companyProfileContent.innerHTML = `
       <p><strong>Varlık:</strong> ${asset.name} (${asset.symbol})</p>
-      <p><strong>Borsa / Piyasa:</strong> ${asset.exchange} (${asset.type.toUpperCase()})</p>
-      <p><strong>Piyasa Değeri:</strong> ~$${((asset.basePrice * (asset.volume || 10000000)) / 1000000).toLocaleString('en-US', { maximumFractionDigits: 0 })} M</p>
-      <p><strong>Takip Tipi:</strong> ${asset.type === 'crypto' ? 'Blokzincir / Kripto Para Birimi' : 'Halka Açık Anonim Şirket Hissesi'}</p>
+      <p><strong>Borsa / Piyasa:</strong> ${asset.exchange} (${asset.type === 'bist' ? 'Borsa İstanbul' : asset.type.toUpperCase()})</p>
+      <p><strong>Piyasa Değeri:</strong> ~${cur}${((asset.basePrice * (asset.volume || 10000000)) / 1000000).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} M</p>
+      <p><strong>Takip Tipi:</strong> ${asset.type === 'bist' ? 'Borsa İstanbul Lokomotif Şirketi' : (asset.type === 'crypto' ? 'Blokzincir / Kripto Para Birimi' : 'Halka Açık Anonim Şirket Hissesi')}</p>
       <p style="margin-top: 8px; font-size: 0.82rem; color: var(--text-muted);">
         Veriler Cloudflare Worker önbellekleme katmanı üzerinden Finnhub ve CoinGecko API entegrasyonuyla sunulmaktadır.
       </p>
@@ -1195,24 +1214,23 @@
     }
   }
 
-  // --- Piyasa Kartları (Bölgesel ve Global) ---
+  // --- Piyasa Kartları (BIST 10) ---
   function renderMarketGrids() {
-    // 1. Bölgesel Kartlar (TR için BIST, US için NASDAQ)
-    const regionalAssets = ASSET_UNIVERSE.filter(a => {
-      if (state.currentRegion === 'TR') return a.type === 'bist';
-      return a.type === 'stock';
-    }).slice(0, 6);
+    // Ana menüde yalnızca BIST 10 hisseleri listelenir
+    const bistAssets = ASSET_UNIVERSE.filter(a => a.type === 'bist').slice(0, 10);
+    dom.regionalGrid.innerHTML = bistAssets.map(a => createAssetCardHTML(a)).join('');
 
-    dom.regionalGrid.innerHTML = regionalAssets.map(a => createAssetCardHTML(a)).join('');
-
-    // 2. Global Devler & Kriptolar
-    const globalAssets = ASSET_UNIVERSE.filter(a => a.type === 'crypto' || (state.currentRegion === 'TR' && a.type === 'stock')).slice(0, 6);
-    dom.globalGrid.innerHTML = globalAssets.map(a => createAssetCardHTML(a)).join('');
+    // Global / Yabancı borsa alanı ana menüde gizlenir
+    if (dom.globalGrid) {
+      dom.globalGrid.innerHTML = '';
+      dom.globalGrid.style.display = 'none';
+    }
   }
 
   function createAssetCardHTML(asset, isWatchlistCard = false) {
     const isBullish = asset.change24h >= 0;
     const isFav = state.watchlist.includes(asset.symbol);
+    const curSymbol = asset.type === 'bist' ? '₺' : '$';
 
     let tagClass = 'tag-neutral';
     let tagText = 'Yatay Trend';
@@ -1232,7 +1250,7 @@
         </div>
 
         <div class="asset-card-price-row">
-          <span class="asset-card-price">$${asset.basePrice.toLocaleString()}</span>
+          <span class="asset-card-price">${curSymbol}${asset.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           <span class="change-pill ${isBullish ? 'bullish' : 'bearish'}">
             ${isBullish ? '+' : ''}${asset.change24h.toFixed(2)}%
           </span>
@@ -1282,7 +1300,7 @@
             </div>
           </div>
           <div style="text-align: right; font-family: var(--font-mono); font-size: 0.9rem;">
-            <div>$${r.basePrice.toLocaleString()}</div>
+            <div>${r.type === 'bist' ? '₺' : '$'}${r.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div style="color: ${r.change24h >= 0 ? '#10b981' : '#ef4444'}; font-size: 0.78rem;">
               ${r.change24h >= 0 ? '+' : ''}${r.change24h.toFixed(2)}%
             </div>
@@ -1450,8 +1468,8 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
             <strong>${asset.symbol}</strong>
             <span style="display: block; font-size: 0.78rem; color: var(--text-muted);">${asset.name}</span>
           </td>
-          <td><span class="detail-market-badge">${asset.type.toUpperCase()}</span></td>
-          <td style="font-family: var(--font-mono); font-weight: 700;">$${asset.basePrice.toLocaleString()}</td>
+          <td><span class="detail-market-badge">${asset.type === 'bist' ? 'BIST' : asset.type.toUpperCase()}</span></td>
+          <td style="font-family: var(--font-mono); font-weight: 700;">${asset.type === 'bist' ? '₺' : '$'}${asset.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           <td>
             <span class="change-pill ${asset.change24h >= 0 ? 'bullish' : 'bearish'}">
               ${asset.change24h >= 0 ? '+' : ''}${asset.change24h.toFixed(2)}%
