@@ -120,6 +120,7 @@
       'screen-screener': document.getElementById('screen-screener'),
       'screen-portfolio': document.getElementById('screen-portfolio'),
       'screen-store': document.getElementById('screen-store'),
+      'screen-leaderboard': document.getElementById('screen-leaderboard'),
       'screen-admin': document.getElementById('screen-admin'),
     },
     navBrandHome: document.getElementById('navBrandHome'),
@@ -187,6 +188,11 @@
     storeGiftsList: document.getElementById('storeGiftsList'),
     storeGiftsEmptyState: document.getElementById('storeGiftsEmptyState'),
     modalSendGift: document.getElementById('modalSendGift'),
+    btnRefreshLeaderboard: document.getElementById('btnRefreshLeaderboard'),
+    leaderboardOptInBox: document.getElementById('leaderboardOptInBox'),
+    leaderboardOptInCheckbox: document.getElementById('leaderboardOptInCheckbox'),
+    leaderboardTableBody: document.getElementById('leaderboardTableBody'),
+    leaderboardEmptyState: document.getElementById('leaderboardEmptyState'),
     giftItemPreview: document.getElementById('giftItemPreview'),
     giftRecipientEmail: document.getElementById('giftRecipientEmail'),
     giftErrorMsg: document.getElementById('giftErrorMsg'),
@@ -580,6 +586,7 @@
           portfolio: Array.isArray(data.portfolio) ? data.portfolio : [],
           gems: typeof data.gems === 'number' ? data.gems : 100,
           ownedItems: Array.isArray(data.ownedItems) ? data.ownedItems : [],
+          showOnLeaderboard: Boolean(data.showOnLeaderboard),
           status: data.status || 'active',
           localCurrency: data.localCurrency || 'TRY'
         };
@@ -591,6 +598,7 @@
           portfolio: [],
           gems: 100,
           ownedItems: [],
+          showOnLeaderboard: false,
           status: 'active',
           localCurrency: 'TRY',
           createdAt: window.fb.serverTimestamp()
@@ -609,6 +617,7 @@
         portfolio: [],
         gems: 100,
         ownedItems: [],
+        showOnLeaderboard: false,
         status: 'active',
         localCurrency: 'TRY'
       };
@@ -942,6 +951,7 @@
     dom.portfolioAssetCount.textContent = `${portfolio.length} Varlık`;
 
     checkMillionaireMilestone(totalPortfolioUSD);
+    syncLeaderboardEntry(totalPortfolioUSD, totalProfitPct);
 
     if (portfolio.length === 0) {
       dom.portfolioEmptyState.style.display = 'block';
@@ -1367,6 +1377,76 @@
     }
   }
 
+  // --- 🏆 Liderlik Tablosu ---
+  async function syncLeaderboardEntry(totalUSD, profitPct) {
+    if (!state.currentUser || !state.userProfile) return;
+    try {
+      if (state.userProfile.showOnLeaderboard) {
+        await window.fb.setLeaderboardEntry(state.currentUser.uid, {
+          displayName: state.userProfile.displayName || state.userProfile.email.split('@')[0],
+          totalUSD,
+          profitPct,
+          updatedAt: window.fb.serverTimestamp()
+        });
+      } else {
+        await window.fb.deleteLeaderboardEntry(state.currentUser.uid);
+      }
+    } catch (err) {
+      console.warn('Liderlik tablosu güncellenemedi:', err);
+    }
+  }
+
+  async function toggleLeaderboardOptIn(checked) {
+    if (!state.currentUser || !state.userProfile) return;
+    try {
+      await window.fb.updateUserDoc(state.currentUser.uid, { showOnLeaderboard: checked });
+      state.userProfile.showOnLeaderboard = checked;
+      renderPortfolioUI(); // toplam değeri yeniden hesaplayıp senkronize eder
+    } catch (err) {
+      alert(`Ayar kaydedilemedi: ${err.message}`);
+    }
+  }
+
+  async function renderLeaderboard() {
+    if (!dom.leaderboardTableBody) return;
+
+    if (dom.leaderboardOptInBox) {
+      dom.leaderboardOptInBox.style.display = state.currentUser ? 'flex' : 'none';
+      if (dom.leaderboardOptInCheckbox && state.userProfile) {
+        dom.leaderboardOptInCheckbox.checked = Boolean(state.userProfile.showOnLeaderboard);
+      }
+    }
+
+    try {
+      const entries = await window.fb.getLeaderboard();
+      entries.sort((a, b) => (b.totalUSD || 0) - (a.totalUSD || 0));
+
+      if (entries.length === 0) {
+        dom.leaderboardEmptyState.style.display = 'block';
+        dom.leaderboardTableBody.innerHTML = '';
+        return;
+      }
+
+      dom.leaderboardEmptyState.style.display = 'none';
+      const rankIcons = ['🥇', '🥈', '🥉'];
+      dom.leaderboardTableBody.innerHTML = entries.slice(0, 50).map((entry, idx) => {
+        const isProfit = (entry.profitPct || 0) >= 0;
+        const sign = isProfit ? '+' : '';
+        const isMe = state.currentUser && entry.uid === state.currentUser.uid;
+        return `
+          <tr style="${isMe ? 'background: rgba(6,182,212,0.08);' : ''}">
+            <td style="font-weight: 700;">${rankIcons[idx] || `#${idx + 1}`}</td>
+            <td>${entry.displayName || 'Yatırımcı'}${isMe ? ' <span style="color: var(--color-primary); font-size: 0.75rem;">(Sen)</span>' : ''}</td>
+            <td style="font-weight: 700;">$${(entry.totalUSD || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="color: ${isProfit ? '#10b981' : '#ef4444'}; font-weight: 600;">${sign}${(entry.profitPct || 0).toFixed(2)}%</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      dom.leaderboardTableBody.innerHTML = `<tr><td colspan="4" style="color:#ef4444;">Liderlik tablosu yüklenemedi: ${err.message}</td></tr>`;
+    }
+  }
+
   // --- Sekme & Ekran Yönlendirmesi ---
   function switchScreen(screenId) {
     state.currentScreen = screenId;
@@ -1402,6 +1482,10 @@
 
     if (screenId === 'screen-store') {
       renderStoreUI();
+    }
+
+    if (screenId === 'screen-leaderboard') {
+      renderLeaderboard();
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2402,6 +2486,14 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
         generateShareCard();
         openModal('modalSharePortfolio');
       });
+    }
+
+    // 🏆 Liderlik Tablosu
+    if (dom.btnRefreshLeaderboard) {
+      dom.btnRefreshLeaderboard.addEventListener('click', () => renderLeaderboard());
+    }
+    if (dom.leaderboardOptInCheckbox) {
+      dom.leaderboardOptInCheckbox.addEventListener('change', (e) => toggleLeaderboardOptIn(e.target.checked));
     }
 
     // Admin: Tablo İçi Aksiyonlar (Event Delegation)
