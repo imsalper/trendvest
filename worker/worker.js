@@ -57,6 +57,11 @@ export default {
         return await handleAIScreenComment(request, env);
       }
 
+      // 6. AI Hisse Önerileri Uç Noktası
+      if (pathname === '/api/ai/recommendations' && request.method === 'POST') {
+        return await handleAIRecommendations(request, env);
+      }
+
       return jsonResponse({ error: 'Uç nokta bulunamadı' }, 404);
     } catch (err) {
       return jsonResponse({ error: err.message || 'Sunucu hatası' }, 500);
@@ -261,6 +266,65 @@ Bu stratejinin finansal piyasalardaki mantığını ve yatırımcıların bu tek
       commentary: `${strategyName} sepeti, kural tabanlı matematiksel filtreleme ile oluşturulmuştur. Bu gösterge bileşimi, piyasadaki momentum ve hacim dinamiklerini takip etmek için analistlerce sıkça kullanılan istatistiksel bir tarama yöntemidir.`
     });
   }
+}
+
+/**
+ * AI Hisse Önerileri (Teknik Öne Çıkanlar) Üretir
+ */
+async function handleAIRecommendations(request, env) {
+  const body = await request.json();
+  const { assets } = body;
+
+  if (!Array.isArray(assets) || assets.length === 0) {
+    return jsonResponse({ error: 'Varlık listesi eksik.' }, 400);
+  }
+
+  const systemPrompt = `Sen TrendVest platformunun tarafsız teknik analiz motorusun.
+GÖREVİN: Sana verilen, kural tabanlı bir skorlama ile önceden seçilmiş hisse senetlerinin her biri için 2-3 cümlelik, sade Türkçe bir "neden teknik olarak öne çıktı" açıklaması üretmektir.
+KRİTİK VE ZORUNLU YASAL KURALLAR:
+1. KESİNLİKLE 'al', 'sat', 'tut', 'hedef fiyat' gibi hiçbir doğrudan yatırım tavsiyesi verme.
+2. Yalnızca verilen teknik göstergelerin (RSI, trend, hacim, değişim) neye işaret ettiğini nesnel olarak açıkla.
+3. Yanıtını HER hisse için ayrı ayrı, tam olarak şu formatta ver (başka hiçbir şey ekleme):
+### SEMBOL
+<2-3 cümlelik teknik açıklama>`;
+
+  const userPrompt = `Aşağıdaki hisseler için teknik öne çıkma açıklaması üret:\n\n` +
+    assets.map(a => `- ${a.symbol} (${a.name}): Fiyat $${a.price}, 24s Değişim %${a.change24h}, RSI ${a.rsi}, Trend: ${a.trendDirection}, Skor: ${a.score}/100`).join('\n');
+
+  let rawText;
+  if (env.OPENAI_API_KEY) {
+    rawText = await callOpenAI(env.OPENAI_API_KEY, systemPrompt, userPrompt);
+  } else if (env.ANTHROPIC_API_KEY) {
+    rawText = await callAnthropic(env.ANTHROPIC_API_KEY, systemPrompt, userPrompt);
+  } else {
+    return jsonResponse({
+      recommendations: assets.map(a => ({ symbol: a.symbol, highlight: generateRuleBasedHighlight(a) })),
+      provider: 'TrendVest-Algorithmic-Engine'
+    });
+  }
+
+  const recommendations = parseRecommendationSections(rawText, assets);
+  return jsonResponse({ recommendations, provider: env.OPENAI_API_KEY ? 'OpenAI' : 'Anthropic' });
+}
+
+function parseRecommendationSections(rawText, assets) {
+  const sections = (rawText || '').split(/###\s+/).map(s => s.trim()).filter(Boolean);
+  const bySymbol = {};
+  sections.forEach(section => {
+    const [firstLine, ...rest] = section.split('\n');
+    const symbol = (firstLine || '').trim();
+    const text = rest.join(' ').trim();
+    if (symbol) bySymbol[symbol] = text;
+  });
+
+  return assets.map(a => ({
+    symbol: a.symbol,
+    highlight: bySymbol[a.symbol] || generateRuleBasedHighlight(a)
+  }));
+}
+
+function generateRuleBasedHighlight(a) {
+  return `${a.symbol}, ${a.trendDirection === 'Yükseliş' ? 'yükseliş eğilimli' : a.trendDirection === 'Düşüş' ? 'zayıf seyirli' : 'yatay'} bir teknik görünüm sergiliyor. RSI ${a.rsi} seviyesinde ve 24 saatte %${a.change24h} değişim kaydetti; bileşik teknik skor ${a.score}/100.`;
 }
 
 async function callOpenAI(apiKey, systemPrompt, userPrompt) {

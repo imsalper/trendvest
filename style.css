@@ -586,6 +586,60 @@ body {
 .tag-bearish { background: rgba(239, 68, 68, 0.15); color: #f87171; }
 .tag-neutral { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
 
+/* ✨ AI Hisse Önerileri */
+.ai-picks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.ai-pick-card {
+  background: var(--bg-card);
+  backdrop-filter: var(--backdrop-blur);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-pick-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.12);
+}
+
+.ai-pick-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ai-pick-score-badge {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.ai-pick-highlight-text {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-top: 10px;
+}
+
+.ai-picks-loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 30px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 /* ==========================================================================
    EKRAN 2 — DETAY & GRAFİK & TEKNİK GÖSTERGELER
    ========================================================================== */

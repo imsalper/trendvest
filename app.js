@@ -162,6 +162,8 @@
     regionalGrid: document.getElementById('regionalGrid'),
     regionalSectionTitle: document.getElementById('regionalSectionTitle'),
     globalGrid: document.getElementById('globalGrid'),
+    aiPicksGrid: document.getElementById('aiPicksGrid'),
+    btnRefreshAIPicks: document.getElementById('btnRefreshAIPicks'),
 
     // Detay Ekranı
     detailSymbolBadge: document.getElementById('detailSymbolBadge'),
@@ -256,6 +258,7 @@
     renderWatchlist();
     renderMarketGrids();
     renderScreenerStrategies();
+    loadAIRecommendations();
     handleHashNavigation();
   }
 
@@ -1229,6 +1232,85 @@
     }
   }
 
+  // --- ✨ AI Hisse Önerileri (Teknik Skorlama + AI Yorumu) ---
+  function computeCompositeScore(asset) {
+    const rsiScore = (asset.rsi - 50); // momentum yönü
+    const trendScore = (asset.sma20 > asset.sma50) ? 15 : -10;
+    const volumeScore = (asset.volumeRatio - 1) * 12;
+    const changeScore = asset.change24h * 3;
+    const raw = 50 + rsiScore + trendScore + volumeScore + changeScore;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  }
+
+  function getTopAIPicks(count = 3) {
+    return [...ASSET_UNIVERSE]
+      .filter(a => a.type === 'bist')
+      .map(a => ({ ...a, score: computeCompositeScore(a) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, count);
+  }
+
+  function trendDirectionOf(asset) {
+    if (asset.rsi >= 60 || asset.change24h >= 2) return 'Yükseliş';
+    if (asset.rsi <= 40 || asset.change24h <= -2) return 'Düşüş';
+    return 'Yatay';
+  }
+
+  async function loadAIRecommendations() {
+    if (!dom.aiPicksGrid) return;
+    const picks = getTopAIPicks(3);
+    dom.aiPicksGrid.innerHTML = `<div class="ai-picks-loading">✨ AI teknik değerlendirme hazırlanıyor...</div>`;
+
+    const payloadAssets = picks.map(p => ({
+      symbol: p.symbol,
+      name: p.name,
+      price: p.basePrice,
+      change24h: p.change24h,
+      rsi: p.rsi,
+      trendDirection: trendDirectionOf(p),
+      score: p.score
+    }));
+
+    let recommendations;
+    try {
+      const res = await fetch(`${state.workerUrl}/api/ai/recommendations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assets: payloadAssets })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      recommendations = data.recommendations;
+    } catch (err) {
+      console.warn('AI önerileri alınamadı, algoritmik özet kullanılıyor:', err);
+      recommendations = payloadAssets.map(a => ({
+        symbol: a.symbol,
+        highlight: `${a.symbol}, ${a.trendDirection === 'Yükseliş' ? 'yükseliş eğilimli' : a.trendDirection === 'Düşüş' ? 'zayıf seyirli' : 'yatay'} bir teknik görünüm sergiliyor. RSI ${a.rsi} seviyesinde ve 24 saatte %${a.change24h} değişim kaydetti; bileşik teknik skor ${a.score}/100.`
+      }));
+    }
+
+    dom.aiPicksGrid.innerHTML = picks.map(p => {
+      const rec = recommendations.find(r => r.symbol === p.symbol);
+      const isBullish = p.change24h >= 0;
+      return `
+        <div class="ai-pick-card" data-symbol="${p.symbol}" data-type="${p.type}">
+          <div class="ai-pick-card-top">
+            <div>
+              <span class="asset-card-symbol">${p.symbol}</span>
+              <div class="asset-card-name">${p.name}</div>
+            </div>
+            <span class="ai-pick-score-badge">Skor ${p.score}/100</span>
+          </div>
+          <div class="asset-card-price-row">
+            <span class="asset-card-price">₺${p.basePrice.toFixed(2)}</span>
+            <span class="change-pill ${isBullish ? 'bullish' : 'bearish'}">${isBullish ? '+' : ''}${p.change24h.toFixed(2)}%</span>
+          </div>
+          <p class="ai-pick-highlight-text">${rec ? rec.highlight : ''}</p>
+        </div>
+      `;
+    }).join('');
+  }
+
   function createAssetCardHTML(asset, isWatchlistCard = false) {
     const isBullish = asset.change24h >= 0;
     const isFav = state.watchlist.includes(asset.symbol);
@@ -1596,7 +1678,7 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
       }
 
       // Kartın geneline tıklama
-      const card = e.target.closest('.asset-card');
+      const card = e.target.closest('.asset-card, .ai-pick-card');
       if (card) {
         const symbol = card.dataset.symbol;
         const type = card.dataset.type || 'stock';
@@ -1697,6 +1779,11 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
 
     // Admin: Kullanıcıları Yenile
     dom.btnRefreshUsers.addEventListener('click', () => loadAdminUsers());
+
+    // AI Hisse Önerilerini Yenile
+    if (dom.btnRefreshAIPicks) {
+      dom.btnRefreshAIPicks.addEventListener('click', () => loadAIRecommendations());
+    }
 
     // --- Portföy & Sepetim Event Dinleyicileri ---
     if (dom.btnOpenAddToBasketModal) {
