@@ -15,7 +15,9 @@
   };
 
   // --- Yönetici E-postası (Admin Paneline erişim tek bu hesapla) ---
-    // --- 10 Lokomotif BIST Şirketi (BIST 10) ve Örnek Varlık Havuzu ---
+  const ADMIN_EMAIL = 'imsalper@gmail.com';
+
+  // --- 10 Lokomotif BIST Şirketi (BIST 10) ve Örnek Varlık Havuzu ---
   const BIST_10_SYMBOLS = ['THYAO', 'AKBNK', 'GARAN', 'EREGL', 'ASELS', 'KCHOL', 'ISCTR', 'TUPRS', 'SAHOL', 'BIMAS'];
 
   const ASSET_UNIVERSE = [
