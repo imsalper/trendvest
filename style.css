@@ -401,6 +401,7 @@ body {
 .badge-stock { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
 .badge-crypto { background: rgba(245, 158, 11, 0.2); color: #fde047; }
 .badge-bist { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+.badge-fund { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
 
 .search-item-symbol {
   font-family: var(--font-mono);

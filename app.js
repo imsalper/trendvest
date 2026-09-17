@@ -46,8 +46,26 @@
     { symbol: 'ETH', name: 'Ethereum', type: 'crypto', exchange: 'Global Crypto', basePrice: 2540, change24h: -0.65, volume: 16500000000, rsi: 36.8, sma20: 2580, sma50: 2640, volumeRatio: 1.05 },
     { symbol: 'SOL', name: 'Solana', type: 'crypto', exchange: 'Global Crypto', basePrice: 152.40, change24h: 5.40, volume: 4800000000, rsi: 68.4, sma20: 142.0, sma50: 134.0, volumeRatio: 1.85 },
     { symbol: 'AVAX', name: 'Avalanche', type: 'crypto', exchange: 'Global Crypto', basePrice: 28.60, change24h: 3.10, volume: 650000000, rsi: 54.0, sma20: 26.8, sma50: 25.5, volumeRatio: 1.35 },
-    { symbol: 'BNB', name: 'BNB Chain', type: 'crypto', exchange: 'Global Crypto', basePrice: 578.00, change24h: 0.20, volume: 1100000000, rsi: 50.2, sma20: 572.0, sma50: 565.0, volumeRatio: 0.88 }
+    { symbol: 'BNB', name: 'BNB Chain', type: 'crypto', exchange: 'Global Crypto', basePrice: 578.00, change24h: 0.20, volume: 1100000000, rsi: 50.2, sma20: 572.0, sma50: 565.0, volumeRatio: 0.88 },
+
+    // 💰 TEFAS Yatırım Fonları (Simülasyon Amaçlı Örnek Veri)
+    { symbol: 'TTE', name: 'İş Portföy Teknoloji Fonu', type: 'fund', exchange: 'TEFAS', basePrice: 2.845, change24h: 1.35, volume: 8500000, rsi: 58.0, sma20: 2.78, sma50: 2.70, volumeRatio: 1.10 },
+    { symbol: 'AFA', name: 'Ak Portföy Alternatif Enerji Fonu', type: 'fund', exchange: 'TEFAS', basePrice: 1.962, change24h: -0.45, volume: 4200000, rsi: 46.5, sma20: 2.00, sma50: 2.03, volumeRatio: 0.92 },
+    { symbol: 'YAS', name: 'Yapı Kredi Portföy Altın Fonu', type: 'fund', exchange: 'TEFAS', basePrice: 5.128, change24h: 0.80, volume: 3100000, rsi: 55.2, sma20: 5.05, sma50: 4.95, volumeRatio: 1.05 },
+    { symbol: 'GPB', name: 'Garanti Portföy Borçlanma Araçları Fonu', type: 'fund', exchange: 'TEFAS', basePrice: 3.410, change24h: 0.12, volume: 2600000, rsi: 50.8, sma20: 3.38, sma50: 3.36, volumeRatio: 0.98 }
   ];
+
+  // --- Tür Bazlı Yardımcılar (Para Birimi & Etiketler) ---
+  function currencySymbolFor(type) {
+    return (type === 'bist' || type === 'fund') ? '₺' : '$';
+  }
+
+  function assetTypeLabel(type) {
+    if (type === 'bist') return 'BIST Hissesi';
+    if (type === 'crypto') return 'Kripto Para';
+    if (type === 'fund') return 'Yatırım Fonu';
+    return 'Hisse Senedi';
+  }
 
   // --- Varsayılan Yapılandırma & Durum (State) ---
   const state = {
@@ -168,6 +186,7 @@
     watchlistGrid: document.getElementById('watchlistGrid'),
     watchlistCount: document.getElementById('watchlistCount'),
     regionalGrid: document.getElementById('regionalGrid'),
+    fundGrid: document.getElementById('fundGrid'),
     regionalSectionTitle: document.getElementById('regionalSectionTitle'),
     globalGrid: document.getElementById('globalGrid'),
     aiPicksGrid: document.getElementById('aiPicksGrid'),
@@ -552,7 +571,7 @@
 
     dom.basketModalSymbolBadge.textContent = targetAsset.symbol;
     dom.basketModalAssetName.textContent = targetAsset.name;
-    dom.basketModalAssetType.textContent = targetAsset.type === 'crypto' ? 'Kripto Para' : (targetAsset.type === 'bist' ? 'BIST Hissesi' : 'Hisse Senedi');
+    dom.basketModalAssetType.textContent = assetTypeLabel(targetAsset.type);
     dom.basketModalMarketPrice.textContent = `$${currentPrice.toFixed(2)}`;
 
     dom.basketInputShares.value = '1';
@@ -1017,20 +1036,20 @@
       symbol,
       name: symbol,
       type,
-      exchange: type === 'crypto' ? 'Crypto' : (type === 'bist' ? 'BIST' : 'NASDAQ'),
+      exchange: type === 'crypto' ? 'Crypto' : (type === 'bist' ? 'BIST' : (type === 'fund' ? 'TEFAS' : 'NASDAQ')),
       basePrice: 150,
       change24h: 1.2,
       volume: 1000000
     };
 
     state.activeAsset = { ...asset };
-    const curSymbol = asset.type === 'bist' ? '₺' : '$';
+    const curSymbol = currencySymbolFor(asset.type);
 
     // Başlık ve Rozetleri Güncelle
     dom.detailSymbolBadge.textContent = asset.symbol;
     dom.detailAssetName.textContent = asset.name;
     dom.detailExchangeBadge.textContent = asset.exchange;
-    dom.detailAssetType.textContent = asset.type === 'bist' ? 'BIST Hissesi' : (asset.type === 'crypto' ? 'Kripto Para' : 'Hisse Senedi');
+    dom.detailAssetType.textContent = assetTypeLabel(asset.type);
     dom.detailCurrentPrice.textContent = `${curSymbol}${asset.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     
     const isBullish = asset.change24h >= 0;
@@ -1151,13 +1170,13 @@
 
   // --- Şirket / Varlık Profili ve Haberler ---
   function renderAssetProfileAndNews(asset) {
-    const cur = asset.type === 'bist' ? '₺' : '$';
+    const cur = currencySymbolFor(asset.type);
     // Profil Alanı
     dom.companyProfileContent.innerHTML = `
       <p><strong>Varlık:</strong> ${asset.name} (${asset.symbol})</p>
-      <p><strong>Borsa / Piyasa:</strong> ${asset.exchange} (${asset.type === 'bist' ? 'Borsa İstanbul' : asset.type.toUpperCase()})</p>
+      <p><strong>Borsa / Piyasa:</strong> ${asset.exchange} (${asset.type === 'bist' ? 'Borsa İstanbul' : (asset.type === 'fund' ? 'Türkiye Elektronik Fon Alım Satım Platformu' : asset.type.toUpperCase())})</p>
       <p><strong>Piyasa Değeri:</strong> ~${cur}${((asset.basePrice * (asset.volume || 10000000)) / 1000000).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} M</p>
-      <p><strong>Takip Tipi:</strong> ${asset.type === 'bist' ? 'Borsa İstanbul Lokomotif Şirketi' : (asset.type === 'crypto' ? 'Blokzincir / Kripto Para Birimi' : 'Halka Açık Anonim Şirket Hissesi')}</p>
+      <p><strong>Takip Tipi:</strong> ${asset.type === 'bist' ? 'Borsa İstanbul Lokomotif Şirketi' : (asset.type === 'crypto' ? 'Blokzincir / Kripto Para Birimi' : (asset.type === 'fund' ? 'TEFAS Yatırım Fonu' : 'Halka Açık Anonim Şirket Hissesi'))}</p>
       <p style="margin-top: 8px; font-size: 0.82rem; color: var(--text-muted);">
         Veriler Cloudflare Worker önbellekleme katmanı üzerinden Finnhub ve CoinGecko API entegrasyonuyla sunulmaktadır.
       </p>
@@ -1244,6 +1263,12 @@
     // Ana menüde yalnızca BIST 10 hisseleri listelenir
     const bistAssets = ASSET_UNIVERSE.filter(a => a.type === 'bist').slice(0, 10);
     dom.regionalGrid.innerHTML = bistAssets.map(a => createAssetCardHTML(a)).join('');
+
+    // Yatırım Fonları (TEFAS)
+    if (dom.fundGrid) {
+      const fundAssets = ASSET_UNIVERSE.filter(a => a.type === 'fund');
+      dom.fundGrid.innerHTML = fundAssets.map(a => createAssetCardHTML(a)).join('');
+    }
 
     // Global / Yabancı borsa alanı ana menüde gizlenir
     if (dom.globalGrid) {
@@ -1334,7 +1359,7 @@
   function createAssetCardHTML(asset, isWatchlistCard = false) {
     const isBullish = asset.change24h >= 0;
     const isFav = state.watchlist.includes(asset.symbol);
-    const curSymbol = asset.type === 'bist' ? '₺' : '$';
+    const curSymbol = currencySymbolFor(asset.type);
 
     let tagClass = 'tag-neutral';
     let tagText = 'Yatay Trend';
@@ -1395,8 +1420,8 @@
       dom.searchDropdown.innerHTML = results.map(r => `
         <div class="search-result-item" data-symbol="${r.symbol}" data-type="${r.type}">
           <div class="search-result-left">
-            <span class="search-item-badge ${r.type === 'crypto' ? 'badge-crypto' : (r.type === 'bist' ? 'badge-bist' : 'badge-stock')}">
-              ${r.type === 'crypto' ? 'KRİPTO' : (r.type === 'bist' ? 'BIST' : 'ABD')}
+            <span class="search-item-badge ${r.type === 'crypto' ? 'badge-crypto' : (r.type === 'bist' ? 'badge-bist' : (r.type === 'fund' ? 'badge-fund' : 'badge-stock'))}">
+              ${r.type === 'crypto' ? 'KRİPTO' : (r.type === 'bist' ? 'BIST' : (r.type === 'fund' ? 'FON' : 'ABD'))}
             </span>
             <div>
               <div class="search-item-symbol">${r.symbol}</div>
@@ -1404,7 +1429,7 @@
             </div>
           </div>
           <div style="text-align: right; font-family: var(--font-mono); font-size: 0.9rem;">
-            <div>${r.type === 'bist' ? '₺' : '$'}${r.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div>${currencySymbolFor(r.type)}${r.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div style="color: ${r.change24h >= 0 ? '#10b981' : '#ef4444'}; font-size: 0.78rem;">
               ${r.change24h >= 0 ? '+' : ''}${r.change24h.toFixed(2)}%
             </div>
