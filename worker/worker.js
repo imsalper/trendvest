@@ -47,6 +47,11 @@ export default {
         return await handleCoinGecko(request, env, ctx, url);
       }
 
+      // 3b. Döviz Kuru Proxy Uç Noktası (Frankfurter.app, 1 saatlik cache)
+      if (pathname === '/api/fx/rate') {
+        return await handleFxRate(request, ctx, url);
+      }
+
       // 4. AI Analiz Uç Noktası
       if (pathname === '/api/ai/analyze' && request.method === 'POST') {
         return await handleAIAnalysis(request, env);
@@ -184,6 +189,44 @@ async function handleCoinGecko(request, env, ctx, url) {
   });
 
   if (res.ok) {
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
+
+  return response;
+}
+
+/**
+ * Döviz Kuru Proxy (Frankfurter.app) — Tarayıcıdan doğrudan erişimde CORS engeline takılır,
+ * bu yüzden Worker üzerinden 1 saatlik önbellekle sunulur.
+ */
+async function handleFxRate(request, ctx, url) {
+  const to = (url.searchParams.get('to') || 'TRY').toUpperCase();
+
+  if (to === 'USD') {
+    return jsonResponse({ from: 'USD', to: 'USD', rate: 1.0 });
+  }
+
+  const cacheKey = new Request(url.toString(), request);
+  const cache = caches.default;
+  const cachedResponse = await cache.match(cacheKey);
+  if (cachedResponse) return cachedResponse;
+
+  const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${encodeURIComponent(to)}`, {
+    headers: { 'Accept': 'application/json' }
+  });
+  const data = await res.json();
+  const rate = data?.rates?.[to];
+
+  const response = new Response(JSON.stringify({ from: 'USD', to, rate: rate ?? null }), {
+    status: res.status,
+    headers: {
+      ...CORS_HEADERS,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=3600'
+    }
+  });
+
+  if (res.ok && rate) {
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
   }
 

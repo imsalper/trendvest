@@ -72,6 +72,7 @@
     currentUser: null,
     userProfile: null,
     liveRates: {},
+    usdTryRate: 34.50,
     authMode: 'login', // 'login' | 'signup'
     workerUrl: localStorage.getItem('trendvest_worker_url') || 'https://trendvest-proxy.imsalper.workers.dev',
     currentScreen: 'screen-home',
@@ -289,6 +290,7 @@
     renderScreenerStrategies();
     loadAIRecommendations();
     handleHashNavigation();
+    fetchLiveExchangeRate('TRY'); // USD/TRY kurunu erkenden ısıt (sepet muhasebesi için)
   }
 
   // --- Kimlik Doğrulama (Firebase Auth) ---
@@ -479,22 +481,29 @@
     if (state.liveRates[currencyCode]) return state.liveRates[currencyCode];
 
     try {
-      const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${currencyCode}`);
+      const res = await fetch(`${state.workerUrl}/api/fx/rate?to=${currencyCode}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.rates && data.rates[currencyCode]) {
-          state.liveRates[currencyCode] = data.rates[currencyCode];
-          return data.rates[currencyCode];
+        if (data && data.rate) {
+          state.liveRates[currencyCode] = data.rate;
+          if (currencyCode === 'TRY') state.usdTryRate = data.rate;
+          return data.rate;
         }
       }
     } catch (e) {
-      console.warn('Frankfurter kur çekme uyarısı, varsayılan kur kullanılıyor:', e);
+      console.warn('Kur çekme uyarısı, varsayılan kur kullanılıyor:', e);
     }
 
     const match = Object.values(COUNTRY_CURRENCIES).find(c => c.code === currencyCode);
     const rate = match ? match.defaultRate : 34.50;
     state.liveRates[currencyCode] = rate;
+    if (currencyCode === 'TRY') state.usdTryRate = rate;
     return rate;
+  }
+
+  // --- Yerel Para Birimli Varlıkların USD Karşılığı (Sepet/Bakiye Muhasebesi İçin) ---
+  function nativeToUsd(price, type) {
+    return (type === 'bist' || type === 'fund') ? price / (state.usdTryRate || 34.50) : price;
   }
 
   // --- Kullanıcı Profili ve Portföy Verisi ---
@@ -574,7 +583,7 @@
     dom.basketModalSymbolBadge.textContent = targetAsset.symbol;
     dom.basketModalAssetName.textContent = targetAsset.name;
     dom.basketModalAssetType.textContent = assetTypeLabel(targetAsset.type);
-    dom.basketModalMarketPrice.textContent = `$${currentPrice.toFixed(2)}`;
+    dom.basketModalMarketPrice.textContent = `${currencySymbolFor(targetAsset.type)}${currentPrice.toFixed(2)}`;
 
     dom.basketInputShares.value = '1';
     dom.basketInputPrice.value = currentPrice.toFixed(2);
@@ -587,7 +596,8 @@
   function updateBasketCalculations() {
     const shares = parseFloat(dom.basketInputShares.value) || 0;
     const price = parseFloat(dom.basketInputPrice.value) || 0;
-    const totalCost = shares * price;
+    const priceUSD = nativeToUsd(price, currentModalAsset?.type);
+    const totalCost = shares * priceUSD;
     const userCash = state.userProfile ? state.userProfile.balanceUSD : 10000.0;
     const remaining = userCash - totalCost;
 
@@ -620,7 +630,8 @@
       return;
     }
 
-    const totalCost = shares * price;
+    const priceUSD = nativeToUsd(price, currentModalAsset.type);
+    const totalCost = shares * priceUSD;
     if (totalCost > state.userProfile.balanceUSD) {
       dom.basketErrorMsg.textContent = 'Yetersiz bakiye.';
       dom.basketErrorMsg.style.display = 'block';
@@ -637,7 +648,7 @@
       if (existingIdx >= 0) {
         const existing = portfolio[existingIdx];
         const newShares = existing.shares + shares;
-        const newAvgCost = ((existing.shares * existing.avgCostUSD) + (shares * price)) / newShares;
+        const newAvgCost = ((existing.shares * existing.avgCostUSD) + (shares * priceUSD)) / newShares;
         portfolio[existingIdx] = {
           ...existing,
           shares: Number(newShares.toFixed(4)),
@@ -650,7 +661,7 @@
           name: currentModalAsset.name,
           type: currentModalAsset.type || 'stock',
           shares: Number(shares.toFixed(4)),
-          avgCostUSD: Number(price.toFixed(2)),
+          avgCostUSD: Number(priceUSD.toFixed(2)),
           addedAt: new Date().toISOString()
         });
       }
@@ -690,7 +701,7 @@
     dom.sellModalSymbolBadge.textContent = item.symbol;
     dom.sellModalAssetName.textContent = item.name;
     dom.sellModalCurrentShares.textContent = item.shares;
-    dom.sellModalMarketPrice.textContent = `$${currentPrice.toFixed(2)}`;
+    dom.sellModalMarketPrice.textContent = `${currencySymbolFor(item.type)}${currentPrice.toFixed(2)}`;
     dom.sellModalAvgCostDisplay.textContent = `$${item.avgCostUSD.toFixed(2)}`;
 
     dom.sellInputShares.value = item.shares.toString();
@@ -705,7 +716,8 @@
     if (!currentSellItem) return;
     const sharesToSell = parseFloat(dom.sellInputShares.value) || 0;
     const currentPrice = getCurrentAssetPrice(currentSellItem.symbol);
-    const returnUSD = sharesToSell * currentPrice;
+    const currentPriceUSD = nativeToUsd(currentPrice, currentSellItem.type);
+    const returnUSD = sharesToSell * currentPriceUSD;
     const costBasis = sharesToSell * currentSellItem.avgCostUSD;
     const profitLoss = returnUSD - costBasis;
     const profitPct = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
@@ -742,7 +754,8 @@
 
     try {
       const currentPrice = getCurrentAssetPrice(currentSellItem.symbol);
-      const returnUSD = Number((sharesToSell * currentPrice).toFixed(2));
+      const currentPriceUSD = nativeToUsd(currentPrice, currentSellItem.type);
+      const returnUSD = Number((sharesToSell * currentPriceUSD).toFixed(2));
       let portfolio = [...state.userProfile.portfolio];
 
       if (sharesToSell >= currentSellItem.shares) {
@@ -801,7 +814,8 @@
 
     function buildRow(item) {
       const curPrice = getCurrentAssetPrice(item.symbol);
-      const marketVal = item.shares * curPrice;
+      const curPriceUSD = nativeToUsd(curPrice, item.type);
+      const marketVal = item.shares * curPriceUSD;
       const costVal = item.shares * item.avgCostUSD;
       const profitVal = marketVal - costVal;
       const profitPct = costVal > 0 ? (profitVal / costVal) * 100 : 0;
@@ -819,7 +833,7 @@
           </td>
           <td style="font-weight: 600;">${item.shares}</td>
           <td>$${item.avgCostUSD.toFixed(2)}</td>
-          <td style="font-weight: 600;">$${curPrice.toFixed(2)}</td>
+          <td style="font-weight: 600;">${currencySymbolFor(item.type)}${curPrice.toFixed(2)}</td>
           <td style="font-weight: 700; color: #fff;">$${marketVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           <td>
             <span class="change-pill ${isProfitable ? 'bullish' : 'bearish'}">
@@ -904,7 +918,8 @@
       let totalVal = cash;
       const rows = portfolio.map(item => {
         const curPrice = getCurrentAssetPrice(item.symbol);
-        const mVal = item.shares * curPrice;
+        const curPriceUSD = nativeToUsd(curPrice, item.type);
+        const mVal = item.shares * curPriceUSD;
         const cVal = item.shares * item.avgCostUSD;
         const pVal = mVal - cVal;
         const pPct = cVal > 0 ? (pVal / cVal) * 100 : 0;
@@ -917,7 +932,7 @@
             <td><strong>${item.symbol}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${item.name})</span></td>
             <td>${item.shares}</td>
             <td>$${item.avgCostUSD.toFixed(2)}</td>
-            <td>$${curPrice.toFixed(2)}</td>
+            <td>${currencySymbolFor(item.type)}${curPrice.toFixed(2)}</td>
             <td style="font-weight:600;">$${mVal.toFixed(2)}</td>
             <td style="color: ${isProf ? '#10b981' : '#ef4444'}; font-weight:600;">${sign}$${pVal.toFixed(2)} (${sign}${pPct.toFixed(1)}%)</td>
           </tr>
