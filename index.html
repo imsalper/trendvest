@@ -19,7 +19,7 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
   <!-- Stil Dosyası -->
-  <link rel="stylesheet" href="style.css?v=15">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 
@@ -476,6 +476,14 @@
 
       <!-- Giriş Yapılmış Kullanıcı Portföy Durumu -->
       <div id="portfolioUserState" style="display: none;">
+
+        <!-- 🤖 Otomatik AI Sepet Botu (Opt-in) -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <input type="checkbox" id="autoTradingCheckbox" style="width: 18px; height: 18px; flex-shrink: 0;">
+          <label for="autoTradingCheckbox" style="font-size: 0.88rem; cursor: pointer; flex: 1; min-width: 200px;">
+            🤖 <strong>Otomatik AI Sepet Botu'nu Aç</strong> — BIST 10'u 7/24 gerçek piyasa verisiyle tarar, uygun gördüğünde sanal bakiyenle otomatik alım/satım yapar (+%3 hedef / -%4 stop, tek pozisyon). <strong>Sanal paradır, gerçek işlem değildir.</strong>
+          </label>
+        </div>
 
         <!-- 🏆 Efsanevi Yatırımcı Rozeti Bandı ($1M Hedefi) -->
         <div id="millionaireBanner" style="display: none; background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(167,139,250,0.12)); border: 1px solid rgba(245,158,11,0.4); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 20px; align-items: center; gap: 14px;">
@@ -1014,10 +1022,10 @@
   </div>
 
   <!-- JavaScript Kodları -->
-  <script src="indicators.js?v=15"></script>
-  <script src="chart.js?v=15"></script>
-  <script src="screener.js?v=15"></script>
-  <script src="app.js?v=15"></script>
+  <script src="indicators.js?v=16"></script>
+  <script src="chart.js?v=16"></script>
+  <script src="screener.js?v=16"></script>
+  <script src="app.js?v=16"></script>
 
   <!-- Firebase SDK & Başlatma -->
   <script type="module">

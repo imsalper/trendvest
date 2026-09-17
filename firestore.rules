@@ -15,7 +15,7 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
       allow update: if isAdmin()
-        || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'portfolio', 'balanceUSD', 'localCurrency', 'gems', 'ownedItems', 'showOnLeaderboard']));
+        || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'portfolio', 'balanceUSD', 'localCurrency', 'gems', 'ownedItems', 'showOnLeaderboard', 'autoTradingEnabled']));
       allow delete: if isAdmin();
     }
 

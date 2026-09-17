@@ -71,6 +71,11 @@ export default {
     } catch (err) {
       return jsonResponse({ error: err.message || 'Sunucu hatası' }, 500);
     }
+  },
+
+  // 🤖 Otomatik AI Sepet Botu — Cloudflare Cron Trigger ile 7/24 çalışır
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runAutoTradingBot(env));
   }
 };
 
@@ -443,4 +448,336 @@ function jsonResponse(data, status = 200) {
       'Content-Type': 'application/json'
     }
   });
+}
+
+/* ============================================================================
+ * 🤖 OTOMATİK AI SEPET BOTU (Sanal Para, Cloudflare Cron Trigger)
+ * Gerçek Finnhub piyasa verisiyle BIST 10 hisselerini tarar, kural tabanlı
+ * RSI/SMA skorlaması yapar ve opt-in olmuş kullanıcıların Firestore
+ * portföylerinde SANAL alım/satım simüle eder. Gerçek para/emir yoktur.
+ * ==========================================================================*/
+
+const BOT_WATCHLIST = ['THYAO', 'AKBNK', 'GARAN', 'EREGL', 'ASELS', 'KCHOL', 'ISCTR', 'TUPRS', 'SAHOL', 'BIMAS'];
+const BOT_TAKE_PROFIT_PCT = 3.0;
+const BOT_STOP_LOSS_PCT = 4.0;
+const BOT_DEFAULT_BUDGET_USD = 1000.0;
+
+// --- Firestore Admin REST Erişimi (Servis Hesabı JWT İmzalama) ---
+let _cachedFirestoreToken = null;
+let _cachedFirestoreTokenExpiry = 0;
+
+function base64UrlEncode(input) {
+  const base64 = typeof input === 'string'
+    ? btoa(input)
+    : btoa(String.fromCharCode(...new Uint8Array(input)));
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function getFirestoreAccessToken(env) {
+  const now = Math.floor(Date.now() / 1000);
+  if (_cachedFirestoreToken && _cachedFirestoreTokenExpiry > now + 60) {
+    return _cachedFirestoreToken;
+  }
+
+  const serviceAccount = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
+    iss: serviceAccount.client_email,
+    scope: 'https://www.googleapis.com/auth/datastore',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600
+  };
+
+  const encHeader = base64UrlEncode(JSON.stringify(header));
+  const encClaim = base64UrlEncode(JSON.stringify(claim));
+  const signingInput = `${encHeader}.${encClaim}`;
+
+  const pemBody = serviceAccount.private_key
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\s/g, '');
+  const derBytes = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    derBytes,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  );
+
+  const encSignature = base64UrlEncode(signature);
+  const jwt = `${signingInput}.${encSignature}`;
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt
+    })
+  });
+
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) {
+    throw new Error(`Firestore OAuth token alınamadı: ${JSON.stringify(tokenData)}`);
+  }
+
+  _cachedFirestoreToken = tokenData.access_token;
+  _cachedFirestoreTokenExpiry = now + (tokenData.expires_in || 3600);
+  return _cachedFirestoreToken;
+}
+
+function jsToFirestoreValue(val) {
+  if (val === null || val === undefined) return { nullValue: null };
+  if (typeof val === 'boolean') return { booleanValue: val };
+  if (typeof val === 'number') return { doubleValue: val };
+  if (typeof val === 'string') return { stringValue: val };
+  if (Array.isArray(val)) return { arrayValue: { values: val.map(jsToFirestoreValue) } };
+  if (typeof val === 'object') {
+    const fields = {};
+    for (const k in val) fields[k] = jsToFirestoreValue(val[k]);
+    return { mapValue: { fields } };
+  }
+  return { stringValue: String(val) };
+}
+
+function firestoreValueToJs(value) {
+  if (!value) return null;
+  if ('nullValue' in value) return null;
+  if ('booleanValue' in value) return value.booleanValue;
+  if ('doubleValue' in value) return value.doubleValue;
+  if ('integerValue' in value) return Number(value.integerValue);
+  if ('stringValue' in value) return value.stringValue;
+  if ('timestampValue' in value) return value.timestampValue;
+  if ('arrayValue' in value) return (value.arrayValue.values || []).map(firestoreValueToJs);
+  if ('mapValue' in value) {
+    const obj = {};
+    const fields = value.mapValue.fields || {};
+    for (const k in fields) obj[k] = firestoreValueToJs(fields[k]);
+    return obj;
+  }
+  return null;
+}
+
+function firestoreDocToJs(doc) {
+  const obj = {};
+  const fields = doc.fields || {};
+  for (const k in fields) obj[k] = firestoreValueToJs(fields[k]);
+  return obj;
+}
+
+async function firestoreRunQuery(env, projectId, structuredQuery) {
+  const token = await getFirestoreAccessToken(env);
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery })
+  });
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter(row => row.document)
+    .map(row => ({
+      uid: row.document.name.split('/').pop(),
+      ...firestoreDocToJs(row.document)
+    }));
+}
+
+async function firestorePatchDoc(env, projectId, collection, docId, updates) {
+  const token = await getFirestoreAccessToken(env);
+  const fieldPaths = Object.keys(updates).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collection}/${docId}?${fieldPaths}`;
+  const fields = {};
+  for (const k in updates) fields[k] = jsToFirestoreValue(updates[k]);
+
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields })
+  });
+  return res.json();
+}
+
+// --- Basit RSI / SMA Hesaplama (Finnhub Günlük Mumlar Üzerinden) ---
+function calculateRSI(closes, period = 14) {
+  if (closes.length < period + 1) return 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const change = closes[i] - closes[i - 1];
+    if (change > 0) gains += change; else losses += Math.abs(change);
+  }
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return Math.round((100 - (100 / (1 + rs))) * 100) / 100;
+}
+
+function calculateSMA(closes, period) {
+  if (closes.length < period) return closes[closes.length - 1] || 0;
+  const slice = closes.slice(closes.length - period);
+  return slice.reduce((a, b) => a + b, 0) / period;
+}
+
+async function fetchBistCandles(symbol, finnhubKey) {
+  const to = Math.floor(Date.now() / 1000);
+  const from = to - (60 * 86400); // son 60 gün
+  const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${finnhubKey}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.s !== 'ok' || !data.c || data.c.length < 20) return null;
+    return { closes: data.c, lastPrice: data.c[data.c.length - 1] };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function scanForBestBistCandidate(finnhubKey) {
+  let best = null;
+  for (const symbol of BOT_WATCHLIST) {
+    const candles = await fetchBistCandles(symbol, finnhubKey);
+    if (!candles) continue;
+
+    const rsi = calculateRSI(candles.closes, 14);
+    const sma20 = calculateSMA(candles.closes, 20);
+    const sma50 = calculateSMA(candles.closes, Math.min(50, candles.closes.length));
+    const price = candles.lastPrice;
+
+    let score = 50;
+    if (rsi <= 35) score += 25;
+    else if (rsi <= 45) score += 15;
+    else if (rsi >= 70) score -= 30;
+    if (price > sma20 && sma20 > sma50) score += 20;
+    else if (price < sma50) score -= 15;
+
+    if (score >= 70 && (!best || score > best.score)) {
+      best = { symbol, price, rsi, sma20, sma50, score };
+    }
+  }
+  return best;
+}
+
+// --- Bot Ana Döngüsü ---
+async function fetchUsdTryRate() {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=USD&to=TRY');
+    const data = await res.json();
+    if (data?.rates?.TRY) return data.rates.TRY;
+  } catch (e) {
+    // yut ve varsayılana düş
+  }
+  return 34.5;
+}
+
+async function runAutoTradingBot(env) {
+  if (!env.FIREBASE_SERVICE_ACCOUNT_JSON || !env.FINNHUB_API_KEY) {
+    console.log('Bot çalıştırılamadı: FIREBASE_SERVICE_ACCOUNT_JSON veya FINNHUB_API_KEY eksik.');
+    return;
+  }
+
+  const serviceAccount = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  const projectId = serviceAccount.project_id;
+  const usdTryRate = await fetchUsdTryRate(); // BIST fiyatları TL cinsinden gelir, sanal bakiye USD'dir
+
+  const users = await firestoreRunQuery(env, projectId, {
+    from: [{ collectionId: 'users' }],
+    where: {
+      fieldFilter: {
+        field: { fieldPath: 'autoTradingEnabled' },
+        op: 'EQUAL',
+        value: { booleanValue: true }
+      }
+    }
+  });
+
+  console.log(`AI Sepet Botu döngüsü başladı: ${users.length} katılımcı kullanıcı, USD/TRY: ${usdTryRate}`);
+
+  if (users.length === 0) {
+    return;
+  }
+
+  let bestCandidate = null; // Aynı döngüde birden çok kullanıcı için tek taramayı paylaş
+
+  for (const user of users) {
+    try {
+      const portfolio = Array.isArray(user.portfolio) ? user.portfolio : [];
+      const balanceUSD = typeof user.balanceUSD === 'number' ? user.balanceUSD : 10000;
+      const botIdx = portfolio.findIndex(p => p.managedByBot === true);
+
+      if (botIdx >= 0) {
+        // --- Açık bot pozisyonu var: Al-sat kontrolü ---
+        const pos = portfolio[botIdx];
+        const candles = await fetchBistCandles(pos.symbol, env.FINNHUB_API_KEY);
+        if (!candles) continue;
+
+        const currentPriceUSD = candles.lastPrice / usdTryRate;
+        const pnlPct = ((currentPriceUSD - pos.avgCostUSD) / pos.avgCostUSD) * 100;
+
+        if (pnlPct >= BOT_TAKE_PROFIT_PCT || pnlPct <= -BOT_STOP_LOSS_PCT) {
+          const returnUSD = pos.shares * currentPriceUSD;
+          const newBalance = Number((balanceUSD + returnUSD).toFixed(2));
+          const newPortfolio = portfolio.filter((_, i) => i !== botIdx);
+          const history = Array.isArray(user.botTradeHistory) ? user.botTradeHistory : [];
+          history.push({
+            symbol: pos.symbol,
+            action: pnlPct >= BOT_TAKE_PROFIT_PCT ? 'TAKE_PROFIT' : 'STOP_LOSS',
+            buyPrice: pos.avgCostUSD,
+            sellPrice: Math.round(currentPriceUSD * 100) / 100,
+            pnlPct: Math.round(pnlPct * 100) / 100,
+            closedAt: new Date().toISOString()
+          });
+
+          await firestorePatchDoc(env, projectId, 'users', user.uid, {
+            portfolio: newPortfolio,
+            balanceUSD: newBalance,
+            botTradeHistory: history.slice(-20)
+          });
+          console.log(`[BOT SELL] ${user.uid} | ${pos.symbol} | PnL: ${pnlPct.toFixed(2)}%`);
+        }
+      } else {
+        // --- Bot pozisyonu yok: Fırsat tara (tüm kullanıcılar için tek seferlik) ---
+        if (bestCandidate === null) {
+          bestCandidate = (await scanForBestBistCandidate(env.FINNHUB_API_KEY)) || false;
+          console.log(bestCandidate
+            ? `Tarama sonucu: ${bestCandidate.symbol} skor ${bestCandidate.score} ile öne çıktı.`
+            : 'Tarama sonucu: Eşik (70) üzerinde skor bulunamadı, bu döngüde alım yapılmayacak.');
+        }
+        if (!bestCandidate) continue;
+
+        const budget = Math.min(BOT_DEFAULT_BUDGET_USD, balanceUSD);
+        if (budget < 10) continue; // yetersiz sanal bakiye
+
+        const priceUSD = bestCandidate.price / usdTryRate;
+        const shares = Number((budget / priceUSD).toFixed(4));
+        const newPortfolio = [...portfolio, {
+          symbol: bestCandidate.symbol,
+          name: bestCandidate.symbol,
+          type: 'bist',
+          shares,
+          avgCostUSD: Math.round(priceUSD * 100) / 100,
+          managedByBot: true,
+          addedAt: new Date().toISOString()
+        }];
+        const newBalance = Number((balanceUSD - budget).toFixed(2));
+
+        await firestorePatchDoc(env, projectId, 'users', user.uid, {
+          portfolio: newPortfolio,
+          balanceUSD: newBalance
+        });
+        console.log(`[BOT BUY] ${user.uid} | ${bestCandidate.symbol} @ ${bestCandidate.price} | Skor: ${bestCandidate.score}`);
+      }
+    } catch (err) {
+      console.log(`Bot hatası (${user.uid}): ${err.message}`);
+    }
+  }
 }

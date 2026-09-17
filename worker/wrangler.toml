@@ -2,6 +2,11 @@ name = "trendvest-proxy"
 main = "worker.js"
 compatibility_date = "2024-09-01"
 
+# 🤖 Otomatik AI Sepet Botu — her 15 dakikada bir piyasayı tarar
+[triggers]
+crons = ["*/15 * * * *"]
+
 # Environment Variables & Secrets (Tanımlanacak Gizli Anahtarlar):
 # FINNHUB_API_KEY
 # OPENAI_API_KEY (veya ANTHROPIC_API_KEY)
+# FIREBASE_SERVICE_ACCOUNT_JSON (Firestore'a admin erişimi için, tek satırlık JSON)

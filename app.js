@@ -191,6 +191,7 @@
     btnRefreshLeaderboard: document.getElementById('btnRefreshLeaderboard'),
     leaderboardOptInBox: document.getElementById('leaderboardOptInBox'),
     leaderboardOptInCheckbox: document.getElementById('leaderboardOptInCheckbox'),
+    autoTradingCheckbox: document.getElementById('autoTradingCheckbox'),
     leaderboardTableBody: document.getElementById('leaderboardTableBody'),
     leaderboardEmptyState: document.getElementById('leaderboardEmptyState'),
     giftItemPreview: document.getElementById('giftItemPreview'),
@@ -587,6 +588,7 @@
           gems: typeof data.gems === 'number' ? data.gems : 100,
           ownedItems: Array.isArray(data.ownedItems) ? data.ownedItems : [],
           showOnLeaderboard: Boolean(data.showOnLeaderboard),
+          autoTradingEnabled: Boolean(data.autoTradingEnabled),
           status: data.status || 'active',
           localCurrency: data.localCurrency || 'TRY'
         };
@@ -599,6 +601,7 @@
           gems: 100,
           ownedItems: [],
           showOnLeaderboard: false,
+          autoTradingEnabled: false,
           status: 'active',
           localCurrency: 'TRY',
           createdAt: window.fb.serverTimestamp()
@@ -618,6 +621,7 @@
         gems: 100,
         ownedItems: [],
         showOnLeaderboard: false,
+        autoTradingEnabled: false,
         status: 'active',
         localCurrency: 'TRY'
       };
@@ -876,6 +880,10 @@
     dom.portfolioGuestState.style.display = 'none';
     dom.portfolioUserState.style.display = 'block';
 
+    if (dom.autoTradingCheckbox) {
+      dom.autoTradingCheckbox.checked = Boolean(state.userProfile.autoTradingEnabled);
+    }
+
     const profile = state.userProfile || { balanceUSD: 10000, portfolio: [] };
     const cashUSD = profile.balanceUSD || 0;
     const portfolio = profile.portfolio || [];
@@ -899,7 +907,10 @@
       return `
         <tr>
           <td>
-            <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">${item.symbol}</div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">
+              ${item.symbol}
+              ${item.managedByBot ? '<span title="AI Sepet Botu tarafından yönetiliyor" style="font-size: 0.7rem; background: rgba(6,182,212,0.15); color: var(--color-primary); padding: 2px 6px; border-radius: 10px; margin-left: 4px;">🤖 Bot</span>' : ''}
+            </div>
             <div style="font-size: 0.78rem; color: var(--text-muted);">${item.name}</div>
           </td>
           <td style="font-weight: 600;">${item.shares}</td>
@@ -1404,6 +1415,20 @@
       renderPortfolioUI(); // toplam değeri yeniden hesaplayıp senkronize eder
     } catch (err) {
       alert(`Ayar kaydedilemedi: ${err.message}`);
+    }
+  }
+
+  async function toggleAutoTrading(checked) {
+    if (!state.currentUser || !state.userProfile) return;
+    try {
+      await window.fb.updateUserDoc(state.currentUser.uid, { autoTradingEnabled: checked });
+      state.userProfile.autoTradingEnabled = checked;
+      if (checked) {
+        alert('🤖 Otomatik AI Sepet Botu açıldı! En yakın taramada (15 dakika içinde) piyasayı kontrol edip uygun fırsat bulursa sepetine otomatik ekleyecek.');
+      }
+    } catch (err) {
+      alert(`Ayar kaydedilemedi: ${err.message}`);
+      dom.autoTradingCheckbox.checked = !checked;
     }
   }
 
@@ -2494,6 +2519,11 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
     }
     if (dom.leaderboardOptInCheckbox) {
       dom.leaderboardOptInCheckbox.addEventListener('change', (e) => toggleLeaderboardOptIn(e.target.checked));
+    }
+
+    // 🤖 Otomatik AI Sepet Botu
+    if (dom.autoTradingCheckbox) {
+      dom.autoTradingCheckbox.addEventListener('change', (e) => toggleAutoTrading(e.target.checked));
     }
 
     // Admin: Tablo İçi Aksiyonlar (Event Delegation)
