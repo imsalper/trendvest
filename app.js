@@ -137,7 +137,15 @@
     portfolioProfitLossPct: document.getElementById('portfolioProfitLossPct'),
     portfolioAssetCount: document.getElementById('portfolioAssetCount'),
     portfolioTableContainer: document.getElementById('portfolioTableContainer'),
-    portfolioTableBody: document.getElementById('portfolioTableBody'),
+    portfolioGroupStock: document.getElementById('portfolioGroupStock'),
+    portfolioGroupCrypto: document.getElementById('portfolioGroupCrypto'),
+    portfolioGroupFund: document.getElementById('portfolioGroupFund'),
+    portfolioStockTableBody: document.getElementById('portfolioStockTableBody'),
+    portfolioCryptoTableBody: document.getElementById('portfolioCryptoTableBody'),
+    portfolioFundTableBody: document.getElementById('portfolioFundTableBody'),
+    portfolioStockCount: document.getElementById('portfolioStockCount'),
+    portfolioCryptoCount: document.getElementById('portfolioCryptoCount'),
+    portfolioFundCount: document.getElementById('portfolioFundCount'),
 
     // Sepete Ekle Butonu (Detay Ekranı)
     btnOpenAddToBasketModal: document.getElementById('btnOpenAddToBasketModal'),
@@ -770,7 +778,7 @@
     let totalAssetValueUSD = 0;
     let totalCostBasisUSD = 0;
 
-    const rows = portfolio.map(item => {
+    function buildRow(item) {
       const curPrice = getCurrentAssetPrice(item.symbol);
       const marketVal = item.shares * curPrice;
       const costVal = item.shares * item.avgCostUSD;
@@ -782,19 +790,12 @@
       totalAssetValueUSD += marketVal;
       totalCostBasisUSD += costVal;
 
-      const typeBadge = item.type === 'crypto' 
-        ? '<span class="badge-type crypto">Kripto</span>'
-        : (item.type === 'bist' 
-            ? '<span class="badge-type bist">BIST</span>'
-            : '<span class="badge-type stock">Hisse</span>');
-
       return `
         <tr>
           <td>
             <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">${item.symbol}</div>
             <div style="font-size: 0.78rem; color: var(--text-muted);">${item.name}</div>
           </td>
-          <td>${typeBadge}</td>
           <td style="font-weight: 600;">${item.shares}</td>
           <td>$${item.avgCostUSD.toFixed(2)}</td>
           <td style="font-weight: 600;">$${curPrice.toFixed(2)}</td>
@@ -811,7 +812,15 @@
           </td>
         </tr>
       `;
-    });
+    }
+
+    const stockItems = portfolio.filter(p => p.type === 'bist' || p.type === 'stock');
+    const cryptoItems = portfolio.filter(p => p.type === 'crypto');
+    const fundItems = portfolio.filter(p => p.type === 'fund');
+
+    const stockRows = stockItems.map(buildRow);
+    const cryptoRows = cryptoItems.map(buildRow);
+    const fundRows = fundItems.map(buildRow);
 
     const totalPortfolioUSD = cashUSD + totalAssetValueUSD;
     const totalProfitUSD = totalPortfolioUSD - 10000.0;
@@ -841,7 +850,18 @@
     } else {
       dom.portfolioEmptyState.style.display = 'none';
       dom.portfolioTableContainer.style.display = 'block';
-      dom.portfolioTableBody.innerHTML = rows.join('');
+
+      dom.portfolioStockCount.textContent = stockItems.length;
+      dom.portfolioCryptoCount.textContent = cryptoItems.length;
+      dom.portfolioFundCount.textContent = fundItems.length;
+
+      dom.portfolioGroupStock.style.display = stockItems.length ? 'block' : 'none';
+      dom.portfolioGroupCrypto.style.display = cryptoItems.length ? 'block' : 'none';
+      dom.portfolioGroupFund.style.display = fundItems.length ? 'block' : 'none';
+
+      dom.portfolioStockTableBody.innerHTML = stockRows.join('');
+      dom.portfolioCryptoTableBody.innerHTML = cryptoRows.join('');
+      dom.portfolioFundTableBody.innerHTML = fundRows.join('');
     }
   }
 

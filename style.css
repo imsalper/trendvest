@@ -1191,6 +1191,17 @@ body {
   overflow-x: auto;
 }
 
+.portfolio-group {
+  margin-bottom: 28px;
+}
+
+.portfolio-group-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text-main);
+}
+
 .screener-table {
   width: 100%;
   border-collapse: collapse;
