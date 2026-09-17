@@ -158,6 +158,7 @@
     portfolioProfitLossPct: document.getElementById('portfolioProfitLossPct'),
     portfolioAssetCount: document.getElementById('portfolioAssetCount'),
     btnSharePortfolio: document.getElementById('btnSharePortfolio'),
+    millionaireBanner: document.getElementById('millionaireBanner'),
     modalSharePortfolio: document.getElementById('modalSharePortfolio'),
     shareCardCanvas: document.getElementById('shareCardCanvas'),
     btnDownloadShareCard: document.getElementById('btnDownloadShareCard'),
@@ -503,8 +504,12 @@
     { id: 'emoji_crown', emoji: '👑', name: 'Taç Rozeti', price: 60, desc: 'Liderlik tablosunda öne çıkanlar için.' },
     { id: 'emoji_wizard', emoji: '🧙', name: 'Grafik Büyücüsü', price: 60, desc: 'Teknik analiz tutkunlarına özel.' },
     { id: 'emoji_shield', emoji: '🛡️', name: 'Sağlam Portföy Kalkanı', price: 45, desc: 'Riskten kaçınan, dengeli yatırımcı rozeti.' },
-    { id: 'emoji_fire', emoji: '🔥', name: 'Ateşli Seri Rozeti', price: 45, desc: 'Art arda başarılı işlemleri kutla.' }
+    { id: 'emoji_fire', emoji: '🔥', name: 'Ateşli Seri Rozeti', price: 45, desc: 'Art arda başarılı işlemleri kutla.' },
+    { id: 'badge_millionaire', emoji: '🏆', name: 'Efsanevi Yatırımcı', price: null, purchasable: false, desc: 'Sanal portföyünü $1.000.000\'a çıkaranlara özel — satın alınamaz, kazanılır.' }
   ];
+
+  const MILLIONAIRE_BADGE_ID = 'badge_millionaire';
+  const MILLIONAIRE_THRESHOLD_USD = 1000000;
 
   // --- 💎 Elmas Paketleri (Gerçek Para — Ödeme Altyapısı Henüz Bağlı Değil) ---
   const GEM_PACKS = [
@@ -936,6 +941,8 @@
     dom.portfolioProfitLossPct.style.color = isOverallProfit ? '#10b981' : '#ef4444';
     dom.portfolioAssetCount.textContent = `${portfolio.length} Varlık`;
 
+    checkMillionaireMilestone(totalPortfolioUSD);
+
     if (portfolio.length === 0) {
       dom.portfolioEmptyState.style.display = 'block';
       dom.portfolioTableContainer.style.display = 'none';
@@ -1140,7 +1147,7 @@
       `;
     }).join('');
 
-    dom.storeItemsGrid.innerHTML = STORE_ITEMS.map(item => {
+    dom.storeItemsGrid.innerHTML = STORE_ITEMS.filter(item => item.purchasable !== false).map(item => {
       const ownedCount = owned.filter(id => id === item.id).length;
       const canAfford = gems >= item.price;
       return `
@@ -1170,19 +1177,54 @@
         const item = STORE_ITEMS.find(i => i.id === itemId);
         if (!item) return '';
         const count = owned.filter(id => id === itemId).length;
+        const isTransferable = item.purchasable !== false;
         return `
           <div class="store-card">
             <div class="ai-pick-card-top">
               <span class="asset-card-symbol">${item.emoji} ${item.name}</span>
               <span class="ai-pick-score-badge">x${count}</span>
             </div>
-            <button class="btn-secondary" data-store-action="gift" data-item-id="${item.id}" style="width: 100%; margin-top: 10px; padding: 8px;">🎁 Hediye Gönder</button>
+            ${isTransferable
+              ? `<button class="btn-secondary" data-store-action="gift" data-item-id="${item.id}" style="width: 100%; margin-top: 10px; padding: 8px;">🎁 Hediye Gönder</button>`
+              : `<div style="width: 100%; margin-top: 10px; padding: 8px; text-align: center; font-size: 0.78rem; color: var(--text-muted);">🔒 Kazanılan rozet, devredilemez</div>`}
           </div>
         `;
       }).join('');
     }
 
     loadIncomingGifts();
+  }
+
+  // --- 🏆 $1.000.000 Hedefi: Otomatik Rozet & Statü ---
+  let millionaireCheckInFlight = false;
+
+  async function checkMillionaireMilestone(totalPortfolioUSD) {
+    if (!dom.millionaireBanner || !state.userProfile) return;
+
+    const alreadyOwned = (state.userProfile.ownedItems || []).includes(MILLIONAIRE_BADGE_ID);
+
+    if (alreadyOwned) {
+      dom.millionaireBanner.style.display = 'flex';
+      return;
+    }
+
+    if (totalPortfolioUSD < MILLIONAIRE_THRESHOLD_USD || millionaireCheckInFlight) {
+      dom.millionaireBanner.style.display = 'none';
+      return;
+    }
+
+    millionaireCheckInFlight = true;
+    try {
+      const newOwned = [...(state.userProfile.ownedItems || []), MILLIONAIRE_BADGE_ID];
+      await window.fb.updateUserDoc(state.currentUser.uid, { ownedItems: newOwned });
+      state.userProfile.ownedItems = newOwned;
+      dom.millionaireBanner.style.display = 'flex';
+      alert('🏆 Tebrikler! Sanal portföyünü $1.000.000\'a çıkardın ve "Efsanevi Yatırımcı" rozetini kazandın!');
+    } catch (err) {
+      console.warn('Efsanevi Yatırımcı rozeti verilemedi:', err);
+    } finally {
+      millionaireCheckInFlight = false;
+    }
   }
 
   async function buyStoreItem(itemId) {
@@ -1234,6 +1276,11 @@
 
     const item = STORE_ITEMS.find(i => i.id === currentGiftItemId);
     if (!item) return;
+    if (item.purchasable === false) {
+      dom.giftErrorMsg.textContent = 'Bu rozet kazanılarak elde edilir, hediye edilemez.';
+      dom.giftErrorMsg.style.display = 'block';
+      return;
+    }
 
     dom.btnConfirmSendGift.disabled = true;
     dom.btnConfirmSendGift.textContent = 'Gönderiliyor...';
