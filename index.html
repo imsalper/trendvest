@@ -19,7 +19,7 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
   <!-- Stil Dosyası -->
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -57,6 +57,9 @@
       </button>
       <button class="nav-tab-btn" data-screen="screen-portfolio" id="tabPortfolio">
         <span>💼</span> Sepetim
+      </button>
+      <button class="nav-tab-btn" data-screen="screen-store" id="tabStore">
+        <span>🎁</span> Mağaza
       </button>
       <button class="nav-tab-btn" data-screen="screen-admin" id="tabAdmin" style="display: none;">
         <span>🛡️</span> Admin
@@ -561,6 +564,71 @@
     </section>
 
     <!-- ==========================================================================
+         EKRAN: 🎁 KOZMETİK MAĞAZA & HEDİYELEŞME
+         ========================================================================== -->
+    <section id="screen-store" class="screen-view">
+
+      <div id="storeGuestState" style="text-align: center; padding: 60px 20px;">
+        <div style="font-size: 2.8rem; margin-bottom: 12px;">🎁</div>
+        <h3 style="font-size: 1.2rem; margin-bottom: 6px;">Mağazayı Kullanmak İçin Giriş Yapın</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); max-width: 440px; margin: 0 auto 18px;">
+          Kozmetik rozet/emoji satın almak ve arkadaşlarınıza hediye göndermek için hesabınıza giriş yapmalısınız.
+        </p>
+        <button class="btn-primary" id="btnStoreLoginPrompt" style="padding: 8px 20px;">👤 Giriş Yap</button>
+      </div>
+
+      <div id="storeUserState" style="display: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 12px;">
+          <h2 class="hero-title" style="font-size: 1.6rem;">🎁 Kozmetik Mağaza</h2>
+          <div style="background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.35); border-radius: 20px; padding: 6px 16px; font-weight: 700; color: #a78bfa;">
+            💎 <span id="storeGemBalance">0</span> Elmas
+          </div>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 20px;">
+          Tamamen kozmetik/sosyal özelliklerdir — gerçek yatırım getirisi veya avantajıyla hiçbir ilgisi yoktur, gerçek paraya çevrilemez.
+        </p>
+
+        <h4 class="portfolio-group-title">🛍️ Ürünler</h4>
+        <div class="ai-picks-grid" id="storeItemsGrid" style="margin-bottom: 28px;"></div>
+
+        <h4 class="portfolio-group-title">🎒 Koleksiyonum</h4>
+        <div id="storeOwnedEmptyState" style="display: none; color: var(--text-muted); font-size: 0.85rem; padding: 12px 0;">
+          Henüz hiç ürün satın almadınız.
+        </div>
+        <div class="ai-picks-grid" id="storeOwnedGrid" style="margin-bottom: 28px;"></div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <h4 class="portfolio-group-title" style="margin-bottom: 0;">📬 Gelen Hediyeler</h4>
+          <button class="btn-secondary" id="btnRefreshGifts" style="padding: 6px 12px; font-size: 0.78rem;">🔄 Yenile</button>
+        </div>
+        <div id="storeGiftsEmptyState" style="display: none; color: var(--text-muted); font-size: 0.85rem; padding: 12px 0;">
+          Bekleyen hediyeniz yok.
+        </div>
+        <div id="storeGiftsList"></div>
+      </div>
+    </section>
+
+    <!-- 🎁 Hediye Gönderme Modalı -->
+    <div class="modal-backdrop" id="modalSendGift">
+      <div class="modal-dialog" style="max-width: 400px;">
+        <div class="modal-header">
+          <h3 class="modal-title">🎁 Hediye Gönder</h3>
+          <button class="modal-close-btn" data-close-modal="modalSendGift">✕</button>
+        </div>
+        <p id="giftItemPreview" style="font-size: 0.9rem; margin-bottom: 16px;"></p>
+        <div class="form-group">
+          <label class="form-label">Alıcının E-postası</label>
+          <input type="email" id="giftRecipientEmail" class="form-control" placeholder="arkadas@eposta.com">
+        </div>
+        <div id="giftErrorMsg" style="display: none; font-size: 0.82rem; color: #ef4444; margin-bottom: 12px;"></div>
+        <div class="modal-footer">
+          <button class="btn-secondary" data-close-modal="modalSendGift">İptal</button>
+          <button class="btn-primary" id="btnConfirmSendGift">🎁 Gönder</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================================================
          EKRAN 6: ADMIN PANELİ (Sadece Yönetici Girişinde Görünür)
          ========================================================================== -->
     <section id="screen-admin" class="screen-view">
@@ -874,10 +942,10 @@
   </div>
 
   <!-- JavaScript Kodları -->
-  <script src="indicators.js?v=9"></script>
-  <script src="chart.js?v=9"></script>
-  <script src="screener.js?v=9"></script>
-  <script src="app.js?v=9"></script>
+  <script src="indicators.js?v=10"></script>
+  <script src="chart.js?v=10"></script>
+  <script src="screener.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 
   <!-- Firebase SDK & Başlatma -->
   <script type="module">
@@ -888,7 +956,7 @@
     } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
     import {
       getFirestore, doc, setDoc, getDoc, getDocs, collection,
-      updateDoc, deleteDoc, serverTimestamp
+      updateDoc, deleteDoc, serverTimestamp, query, where, addDoc
     } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -919,7 +987,22 @@
       getAllUsers: () => getDocs(collection(db, 'users')),
       updateUserDoc: (uid, data) => updateDoc(doc(db, 'users', uid), data),
       deleteUserDoc: (uid) => deleteDoc(doc(db, 'users', uid)),
-      serverTimestamp
+      serverTimestamp,
+
+      // --- Hediye Sistemi ---
+      createPublicProfile: (uid, data) => setDoc(doc(db, 'publicProfiles', uid), data),
+      findUserByEmail: async (email) => {
+        const q = query(collection(db, 'publicProfiles'), where('email', '==', email));
+        const snap = await getDocs(q);
+        return snap.empty ? null : { uid: snap.docs[0].id, ...snap.docs[0].data() };
+      },
+      createGift: (data) => addDoc(collection(db, 'gifts'), data),
+      getIncomingGifts: async (uid) => {
+        const q = query(collection(db, 'gifts'), where('toUid', '==', uid), where('claimed', '==', false));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      },
+      claimGift: (giftId) => updateDoc(doc(db, 'gifts', giftId), { claimed: true })
     };
 
     window.dispatchEvent(new CustomEvent('firebase-ready'));

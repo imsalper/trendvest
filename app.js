@@ -119,6 +119,7 @@
       'screen-ai': document.getElementById('screen-ai'),
       'screen-screener': document.getElementById('screen-screener'),
       'screen-portfolio': document.getElementById('screen-portfolio'),
+      'screen-store': document.getElementById('screen-store'),
       'screen-admin': document.getElementById('screen-admin'),
     },
     navBrandHome: document.getElementById('navBrandHome'),
@@ -166,6 +167,23 @@
     portfolioStockCount: document.getElementById('portfolioStockCount'),
     portfolioCryptoCount: document.getElementById('portfolioCryptoCount'),
     portfolioFundCount: document.getElementById('portfolioFundCount'),
+
+    // 🎁 Kozmetik Mağaza & Hediyeleşme
+    storeGuestState: document.getElementById('storeGuestState'),
+    storeUserState: document.getElementById('storeUserState'),
+    btnStoreLoginPrompt: document.getElementById('btnStoreLoginPrompt'),
+    storeGemBalance: document.getElementById('storeGemBalance'),
+    storeItemsGrid: document.getElementById('storeItemsGrid'),
+    storeOwnedGrid: document.getElementById('storeOwnedGrid'),
+    storeOwnedEmptyState: document.getElementById('storeOwnedEmptyState'),
+    btnRefreshGifts: document.getElementById('btnRefreshGifts'),
+    storeGiftsList: document.getElementById('storeGiftsList'),
+    storeGiftsEmptyState: document.getElementById('storeGiftsEmptyState'),
+    modalSendGift: document.getElementById('modalSendGift'),
+    giftItemPreview: document.getElementById('giftItemPreview'),
+    giftRecipientEmail: document.getElementById('giftRecipientEmail'),
+    giftErrorMsg: document.getElementById('giftErrorMsg'),
+    btnConfirmSendGift: document.getElementById('btnConfirmSendGift'),
 
     // Sepete Ekle Butonu (Detay Ekranı)
     btnOpenAddToBasketModal: document.getElementById('btnOpenAddToBasketModal'),
@@ -359,13 +377,17 @@
     try {
       if (state.authMode === 'signup') {
         const cred = await window.fb.signUp(email, password);
+        const displayName = email.split('@')[0];
         await window.fb.createUserDoc(cred.user.uid, {
           email,
-          displayName: email.split('@')[0],
+          displayName,
           balanceUSD: 10000,
+          gems: 100,
+          ownedItems: [],
           status: 'active',
           createdAt: window.fb.serverTimestamp()
         });
+        await window.fb.createPublicProfile(cred.user.uid, { email, displayName });
       } else {
         await window.fb.signIn(email, password);
       }
@@ -466,6 +488,18 @@
     }
   }
 
+  // --- 🎁 Kozmetik Mağaza Kataloğu (Gerçek Para Değil, Elmas/Gem ile Satın Alınır) ---
+  const STORE_ITEMS = [
+    { id: 'emoji_bull', emoji: '🐂', name: 'Boğa Rozeti', price: 20, desc: 'Profilinde yükseliş ruh halini yansıt.' },
+    { id: 'emoji_bear', emoji: '🐻', name: 'Ayı Rozeti', price: 20, desc: 'Temkinli/düşüş moduna geçenler için.' },
+    { id: 'emoji_diamond', emoji: '💎', name: 'Elmas El Rozeti', price: 35, desc: 'Uzun vadeli tutuş disiplinini göster.' },
+    { id: 'emoji_rocket', emoji: '🚀', name: 'Roket Rozeti', price: 35, desc: 'Güçlü yükseliş anlarını kutla.' },
+    { id: 'emoji_crown', emoji: '👑', name: 'Taç Rozeti', price: 60, desc: 'Liderlik tablosunda öne çıkanlar için.' },
+    { id: 'emoji_wizard', emoji: '🧙', name: 'Grafik Büyücüsü', price: 60, desc: 'Teknik analiz tutkunlarına özel.' },
+    { id: 'emoji_shield', emoji: '🛡️', name: 'Sağlam Portföy Kalkanı', price: 45, desc: 'Riskten kaçınan, dengeli yatırımcı rozeti.' },
+    { id: 'emoji_fire', emoji: '🔥', name: 'Ateşli Seri Rozeti', price: 45, desc: 'Art arda başarılı işlemleri kutla.' }
+  ];
+
   // --- Para Birimleri & Canlı Kur Çevrimi ---
   const COUNTRY_CURRENCIES = {
     'TR': { code: 'TRY', symbol: '₺', defaultRate: 34.50 },
@@ -511,6 +545,7 @@
     if (!user) {
       state.userProfile = null;
       renderPortfolioUI();
+      renderStoreUI();
       return;
     }
 
@@ -524,6 +559,8 @@
           displayName: data.displayName || user.email.split('@')[0],
           balanceUSD: typeof data.balanceUSD === 'number' ? data.balanceUSD : 10000.0,
           portfolio: Array.isArray(data.portfolio) ? data.portfolio : [],
+          gems: typeof data.gems === 'number' ? data.gems : 100,
+          ownedItems: Array.isArray(data.ownedItems) ? data.ownedItems : [],
           status: data.status || 'active',
           localCurrency: data.localCurrency || 'TRY'
         };
@@ -533,11 +570,14 @@
           displayName: user.email.split('@')[0],
           balanceUSD: 10000.0,
           portfolio: [],
+          gems: 100,
+          ownedItems: [],
           status: 'active',
           localCurrency: 'TRY',
           createdAt: window.fb.serverTimestamp()
         };
         await window.fb.createUserDoc(user.uid, defaultProfile);
+        await window.fb.createPublicProfile(user.uid, { email: user.email, displayName: defaultProfile.displayName });
         state.userProfile = { uid: user.uid, ...defaultProfile };
       }
     } catch (err) {
@@ -548,12 +588,15 @@
         displayName: user.email.split('@')[0],
         balanceUSD: 10000.0,
         portfolio: [],
+        gems: 100,
+        ownedItems: [],
         status: 'active',
         localCurrency: 'TRY'
       };
     }
 
     renderPortfolioUI();
+    renderStoreUI();
   }
 
   function getCurrentAssetPrice(symbol) {
@@ -956,6 +999,203 @@
     }
   }
 
+  // --- 🎁 Kozmetik Mağaza & Hediyeleşme ---
+  function renderStoreUI() {
+    if (!dom.storeGuestState) return;
+
+    if (!state.currentUser || !state.userProfile) {
+      dom.storeGuestState.style.display = 'block';
+      dom.storeUserState.style.display = 'none';
+      return;
+    }
+
+    dom.storeGuestState.style.display = 'none';
+    dom.storeUserState.style.display = 'block';
+
+    const gems = state.userProfile.gems || 0;
+    const owned = state.userProfile.ownedItems || [];
+    dom.storeGemBalance.textContent = gems;
+
+    dom.storeItemsGrid.innerHTML = STORE_ITEMS.map(item => {
+      const ownedCount = owned.filter(id => id === item.id).length;
+      const canAfford = gems >= item.price;
+      return `
+        <div class="ai-pick-card" style="cursor: default;">
+          <div class="ai-pick-card-top">
+            <div>
+              <span class="asset-card-symbol">${item.emoji} ${item.name}</span>
+              ${ownedCount > 0 ? `<div class="asset-card-name">Sahipsin: ${ownedCount} adet</div>` : ''}
+            </div>
+            <span class="ai-pick-score-badge">💎 ${item.price}</span>
+          </div>
+          <p class="ai-pick-highlight-text">${item.desc}</p>
+          <button class="btn-primary" data-store-action="buy" data-item-id="${item.id}" style="width: 100%; margin-top: 10px; padding: 8px; ${canAfford ? '' : 'opacity: 0.5;'}" ${canAfford ? '' : 'disabled'}>
+            ${canAfford ? '💎 Satın Al' : 'Yetersiz Elmas'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    if (owned.length === 0) {
+      dom.storeOwnedEmptyState.style.display = 'block';
+      dom.storeOwnedGrid.innerHTML = '';
+    } else {
+      dom.storeOwnedEmptyState.style.display = 'none';
+      const uniqueOwned = [...new Set(owned)];
+      dom.storeOwnedGrid.innerHTML = uniqueOwned.map(itemId => {
+        const item = STORE_ITEMS.find(i => i.id === itemId);
+        if (!item) return '';
+        const count = owned.filter(id => id === itemId).length;
+        return `
+          <div class="ai-pick-card" style="cursor: default;">
+            <div class="ai-pick-card-top">
+              <span class="asset-card-symbol">${item.emoji} ${item.name}</span>
+              <span class="ai-pick-score-badge">x${count}</span>
+            </div>
+            <button class="btn-secondary" data-store-action="gift" data-item-id="${item.id}" style="width: 100%; margin-top: 10px; padding: 8px;">🎁 Hediye Gönder</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    loadIncomingGifts();
+  }
+
+  async function buyStoreItem(itemId) {
+    const item = STORE_ITEMS.find(i => i.id === itemId);
+    if (!item || !state.userProfile) return;
+
+    const gems = state.userProfile.gems || 0;
+    if (gems < item.price) {
+      alert('Yetersiz elmas bakiyesi.');
+      return;
+    }
+
+    try {
+      const newGems = gems - item.price;
+      const newOwned = [...(state.userProfile.ownedItems || []), item.id];
+      await window.fb.updateUserDoc(state.currentUser.uid, { gems: newGems, ownedItems: newOwned });
+      state.userProfile.gems = newGems;
+      state.userProfile.ownedItems = newOwned;
+      renderStoreUI();
+    } catch (err) {
+      alert(`Satın alma başarısız: ${err.message}`);
+    }
+  }
+
+  let currentGiftItemId = null;
+
+  function openSendGiftModal(itemId) {
+    const item = STORE_ITEMS.find(i => i.id === itemId);
+    if (!item) return;
+    currentGiftItemId = itemId;
+    dom.giftItemPreview.textContent = `${item.emoji} ${item.name} gönderiyorsun.`;
+    dom.giftRecipientEmail.value = '';
+    dom.giftErrorMsg.style.display = 'none';
+    openModal('modalSendGift');
+  }
+
+  async function confirmSendGift() {
+    const email = dom.giftRecipientEmail.value.trim();
+    if (!email) {
+      dom.giftErrorMsg.textContent = 'Lütfen bir e-posta adresi girin.';
+      dom.giftErrorMsg.style.display = 'block';
+      return;
+    }
+    if (email === state.currentUser.email) {
+      dom.giftErrorMsg.textContent = 'Kendinize hediye gönderemezsiniz.';
+      dom.giftErrorMsg.style.display = 'block';
+      return;
+    }
+
+    const item = STORE_ITEMS.find(i => i.id === currentGiftItemId);
+    if (!item) return;
+
+    dom.btnConfirmSendGift.disabled = true;
+    dom.btnConfirmSendGift.textContent = 'Gönderiliyor...';
+
+    try {
+      const recipient = await window.fb.findUserByEmail(email);
+      if (!recipient) {
+        dom.giftErrorMsg.textContent = 'Bu e-postayla kayıtlı bir kullanıcı bulunamadı.';
+        dom.giftErrorMsg.style.display = 'block';
+        return;
+      }
+
+      const owned = [...state.userProfile.ownedItems];
+      const idx = owned.indexOf(item.id);
+      if (idx === -1) {
+        dom.giftErrorMsg.textContent = 'Bu üründen sahip değilsiniz.';
+        dom.giftErrorMsg.style.display = 'block';
+        return;
+      }
+      owned.splice(idx, 1);
+
+      await window.fb.updateUserDoc(state.currentUser.uid, { ownedItems: owned });
+      state.userProfile.ownedItems = owned;
+
+      await window.fb.createGift({
+        fromUid: state.currentUser.uid,
+        fromEmail: state.currentUser.email,
+        toUid: recipient.uid,
+        toEmail: email,
+        itemId: item.id,
+        claimed: false,
+        createdAt: window.fb.serverTimestamp()
+      });
+
+      closeModal('modalSendGift');
+      renderStoreUI();
+      alert(`✅ ${item.emoji} ${item.name} başarıyla ${email} adresine gönderildi!`);
+    } catch (err) {
+      dom.giftErrorMsg.textContent = `Hata: ${err.message}`;
+      dom.giftErrorMsg.style.display = 'block';
+    } finally {
+      dom.btnConfirmSendGift.disabled = false;
+      dom.btnConfirmSendGift.textContent = '🎁 Gönder';
+    }
+  }
+
+  async function loadIncomingGifts() {
+    if (!state.currentUser || !dom.storeGiftsList) return;
+    try {
+      const gifts = await window.fb.getIncomingGifts(state.currentUser.uid);
+      if (gifts.length === 0) {
+        dom.storeGiftsEmptyState.style.display = 'block';
+        dom.storeGiftsList.innerHTML = '';
+        return;
+      }
+      dom.storeGiftsEmptyState.style.display = 'none';
+      dom.storeGiftsList.innerHTML = gifts.map(g => {
+        const item = STORE_ITEMS.find(i => i.id === g.itemId);
+        if (!item) return '';
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 8px;">
+            <div>
+              <strong>${item.emoji} ${item.name}</strong>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Gönderen: ${g.fromEmail}</div>
+            </div>
+            <button class="btn-primary" data-gift-action="claim" data-gift-id="${g.id}" data-item-id="${item.id}" style="padding: 6px 14px;">Al</button>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.warn('Gelen hediyeler yüklenemedi:', err);
+    }
+  }
+
+  async function claimGiftAction(giftId, itemId) {
+    try {
+      const newOwned = [...(state.userProfile.ownedItems || []), itemId];
+      await window.fb.updateUserDoc(state.currentUser.uid, { ownedItems: newOwned });
+      state.userProfile.ownedItems = newOwned;
+      await window.fb.claimGift(giftId);
+      renderStoreUI();
+    } catch (err) {
+      alert(`Hediye alınamadı: ${err.message}`);
+    }
+  }
+
   // --- Sekme & Ekran Yönlendirmesi ---
   function switchScreen(screenId) {
     state.currentScreen = screenId;
@@ -987,6 +1227,10 @@
     // Ekran 5 (Portföy & Sepetim) açıldığında güncelle
     if (screenId === 'screen-portfolio') {
       renderPortfolioUI();
+    }
+
+    if (screenId === 'screen-store') {
+      renderStoreUI();
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1915,15 +2159,16 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
     }
 
     // Portföy Tablosu Aksiyonları (Event Delegation)
-    if (dom.portfolioTableBody) {
-      dom.portfolioTableBody.addEventListener('click', (e) => {
+    if (dom.portfolioTableContainer) {
+      dom.portfolioTableContainer.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-portfolio-action]');
         if (!btn) return;
         const action = btn.dataset.portfolioAction;
         const symbol = btn.dataset.symbol;
 
         if (action === 'chart') {
-          selectAsset(symbol);
+          const item = state.userProfile?.portfolio.find(p => p.symbol === symbol);
+          loadAssetDetail(symbol, item?.type);
           switchScreen('screen-detail');
         } else if (action === 'buy-more') {
           const match = ASSET_UNIVERSE.find(a => a.symbol === symbol) || { symbol, name: symbol, type: 'stock', basePrice: 100 };
@@ -1932,6 +2177,42 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
           openSellFromBasketModal(symbol);
         }
       });
+    }
+
+    // 🎁 Mağaza: Ürün Satın Alma (Event Delegation)
+    if (dom.storeItemsGrid) {
+      dom.storeItemsGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-store-action="buy"]');
+        if (btn) buyStoreItem(btn.dataset.itemId);
+      });
+    }
+
+    // 🎁 Mağaza: Koleksiyondan Hediye Gönderme (Event Delegation)
+    if (dom.storeOwnedGrid) {
+      dom.storeOwnedGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-store-action="gift"]');
+        if (btn) openSendGiftModal(btn.dataset.itemId);
+      });
+    }
+
+    // 🎁 Mağaza: Gelen Hediyeyi Alma (Event Delegation)
+    if (dom.storeGiftsList) {
+      dom.storeGiftsList.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-gift-action="claim"]');
+        if (btn) claimGiftAction(btn.dataset.giftId, btn.dataset.itemId);
+      });
+    }
+
+    if (dom.btnRefreshGifts) {
+      dom.btnRefreshGifts.addEventListener('click', () => loadIncomingGifts());
+    }
+
+    if (dom.btnStoreLoginPrompt) {
+      dom.btnStoreLoginPrompt.addEventListener('click', () => openModal('modalAuth'));
+    }
+
+    if (dom.btnConfirmSendGift) {
+      dom.btnConfirmSendGift.addEventListener('click', () => confirmSendGift());
     }
 
     // Admin: Tablo İçi Aksiyonlar (Event Delegation)
