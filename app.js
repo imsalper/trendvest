@@ -113,6 +113,7 @@
     tabs: document.querySelectorAll('.nav-tab-btn'),
     screens: {
       'screen-home': document.getElementById('screen-home'),
+      'screen-crypto': document.getElementById('screen-crypto'),
       'screen-detail': document.getElementById('screen-detail'),
       'screen-ai': document.getElementById('screen-ai'),
       'screen-screener': document.getElementById('screen-screener'),
@@ -187,6 +188,7 @@
     watchlistCount: document.getElementById('watchlistCount'),
     regionalGrid: document.getElementById('regionalGrid'),
     fundGrid: document.getElementById('fundGrid'),
+    cryptoScreenGrid: document.getElementById('cryptoScreenGrid'),
     regionalSectionTitle: document.getElementById('regionalSectionTitle'),
     globalGrid: document.getElementById('globalGrid'),
     aiPicksGrid: document.getElementById('aiPicksGrid'),
@@ -1275,6 +1277,17 @@
       dom.globalGrid.innerHTML = '';
       dom.globalGrid.style.display = 'none';
     }
+
+    renderCryptoScreen();
+  }
+
+  // --- 🪙 Kripto Paralar Ekranı (En Çok İşlem Gören) ---
+  function renderCryptoScreen() {
+    if (!dom.cryptoScreenGrid) return;
+    const cryptoAssets = ASSET_UNIVERSE
+      .filter(a => a.type === 'crypto')
+      .sort((a, b) => b.volume - a.volume);
+    dom.cryptoScreenGrid.innerHTML = cryptoAssets.map(a => createAssetCardHTML(a)).join('');
   }
 
   // --- ✨ AI Hisse Önerileri (Teknik Skorlama + AI Yorumu) ---

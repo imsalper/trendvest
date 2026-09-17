@@ -19,7 +19,7 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
   <!-- Stil Dosyası -->
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -45,6 +45,9 @@
       </button>
       <button class="nav-tab-btn" data-screen="screen-detail" id="tabDetail">
         <span>📊</span> Detay & Grafik
+      </button>
+      <button class="nav-tab-btn" data-screen="screen-crypto" id="tabCrypto">
+        <span>🪙</span> Kripto Paralar
       </button>
       <button class="nav-tab-btn" data-screen="screen-ai" id="tabAI">
         <span>✨</span> AI Analiz
@@ -183,7 +186,22 @@
     </section>
 
     <!-- ==========================================================================
-         EKRAN 2: DETAY & GRAFİK & TEKNİK GÖSTERGELER
+         EKRAN 2: KRİPTO PARALAR (EN ÇOK İŞLEM GÖREN)
+         ========================================================================== -->
+    <section id="screen-crypto" class="screen-view">
+      <div class="section-header" style="margin-top: 0;">
+        <h2 class="hero-title" style="font-size: 1.6rem;">🪙 En Çok İşlem Gören Kripto Paralar</h2>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">
+        24 saatlik işlem hacmine göre sıralanmıştır. Bir karta tıklayarak grafik ve teknik göstergelerini inceleyip sepetinize ekleyebilirsiniz.
+      </p>
+      <div class="asset-grid" id="cryptoScreenGrid">
+        <!-- Dinamik kripto kartları -->
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         EKRAN 3: DETAY & GRAFİK & TEKNİK GÖSTERGELER
          ========================================================================== -->
     <section id="screen-detail" class="screen-view">
       
@@ -856,10 +874,10 @@
   </div>
 
   <!-- JavaScript Kodları -->
-  <script src="indicators.js?v=7"></script>
-  <script src="chart.js?v=7"></script>
-  <script src="screener.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="indicators.js?v=8"></script>
+  <script src="chart.js?v=8"></script>
+  <script src="screener.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 
   <!-- Firebase SDK & Başlatma -->
   <script type="module">
