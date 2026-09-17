@@ -594,7 +594,7 @@ body {
   gap: 16px;
 }
 
-.ai-pick-card {
+.ai-pick-card, .store-card {
   background: var(--bg-card);
   backdrop-filter: var(--backdrop-blur);
   border: 1px solid rgba(139, 92, 246, 0.35);
@@ -602,6 +602,10 @@ body {
   padding: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.store-card {
+  cursor: default;
 }
 
 .ai-pick-card:hover {

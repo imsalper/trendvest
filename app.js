@@ -174,6 +174,8 @@
     btnStoreLoginPrompt: document.getElementById('btnStoreLoginPrompt'),
     storeGemBalance: document.getElementById('storeGemBalance'),
     storeItemsGrid: document.getElementById('storeItemsGrid'),
+    gemPacksGrid: document.getElementById('gemPacksGrid'),
+    gemPaymentNotice: document.getElementById('gemPaymentNotice'),
     storeOwnedGrid: document.getElementById('storeOwnedGrid'),
     storeOwnedEmptyState: document.getElementById('storeOwnedEmptyState'),
     btnRefreshGifts: document.getElementById('btnRefreshGifts'),
@@ -498,6 +500,14 @@
     { id: 'emoji_wizard', emoji: '🧙', name: 'Grafik Büyücüsü', price: 60, desc: 'Teknik analiz tutkunlarına özel.' },
     { id: 'emoji_shield', emoji: '🛡️', name: 'Sağlam Portföy Kalkanı', price: 45, desc: 'Riskten kaçınan, dengeli yatırımcı rozeti.' },
     { id: 'emoji_fire', emoji: '🔥', name: 'Ateşli Seri Rozeti', price: 45, desc: 'Art arda başarılı işlemleri kutla.' }
+  ];
+
+  // --- 💎 Elmas Paketleri (Gerçek Para — Ödeme Altyapısı Henüz Bağlı Değil) ---
+  const GEM_PACKS = [
+    { id: 'pack_starter', gems: 100, bonus: 0, priceTRY: 19.99, label: null },
+    { id: 'pack_popular', gems: 300, bonus: 50, priceTRY: 49.99, label: '⭐ En Popüler' },
+    { id: 'pack_value', gems: 650, bonus: 150, priceTRY: 89.99, label: '🔥 Fırsat' },
+    { id: 'pack_mega', gems: 1500, bonus: 500, priceTRY: 179.99, label: '👑 En Avantajlı' }
   ];
 
   // --- Para Birimleri & Canlı Kur Çevrimi ---
@@ -1016,11 +1026,27 @@
     const owned = state.userProfile.ownedItems || [];
     dom.storeGemBalance.textContent = gems;
 
+    dom.gemPacksGrid.innerHTML = GEM_PACKS.map(pack => {
+      const totalGems = pack.gems + pack.bonus;
+      const perGem = pack.priceTRY / totalGems;
+      return `
+        <div class="store-card" style="${pack.label ? 'border-color: rgba(245,158,11,0.5);' : ''}">
+          <div class="ai-pick-card-top">
+            <span class="asset-card-symbol">💎 ${totalGems.toLocaleString('tr-TR')} Elmas</span>
+            ${pack.label ? `<span class="ai-pick-score-badge" style="background: rgba(245,158,11,0.15); color: #fbbf24;">${pack.label}</span>` : ''}
+          </div>
+          ${pack.bonus > 0 ? `<p class="ai-pick-highlight-text">${pack.gems} + <strong style="color:#34d399;">${pack.bonus} bonus</strong> elmas</p>` : ''}
+          <p style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Elmas başına ≈ ₺${perGem.toFixed(3)}</p>
+          <button class="btn-primary" data-store-action="buy-gems" data-pack-id="${pack.id}" style="width: 100%; margin-top: 10px; padding: 8px;">₺${pack.priceTRY.toFixed(2)}</button>
+        </div>
+      `;
+    }).join('');
+
     dom.storeItemsGrid.innerHTML = STORE_ITEMS.map(item => {
       const ownedCount = owned.filter(id => id === item.id).length;
       const canAfford = gems >= item.price;
       return `
-        <div class="ai-pick-card" style="cursor: default;">
+        <div class="store-card">
           <div class="ai-pick-card-top">
             <div>
               <span class="asset-card-symbol">${item.emoji} ${item.name}</span>
@@ -1047,7 +1073,7 @@
         if (!item) return '';
         const count = owned.filter(id => id === itemId).length;
         return `
-          <div class="ai-pick-card" style="cursor: default;">
+          <div class="store-card">
             <div class="ai-pick-card-top">
               <span class="asset-card-symbol">${item.emoji} ${item.name}</span>
               <span class="ai-pick-score-badge">x${count}</span>
@@ -2184,6 +2210,16 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
       dom.storeItemsGrid.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-store-action="buy"]');
         if (btn) buyStoreItem(btn.dataset.itemId);
+      });
+    }
+
+    // 💎 Mağaza: Elmas Paketi Satın Alma (Ödeme Altyapısı Henüz Yok)
+    if (dom.gemPacksGrid) {
+      dom.gemPacksGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-store-action="buy-gems"]');
+        if (!btn) return;
+        dom.gemPaymentNotice.style.display = 'block';
+        dom.gemPaymentNotice.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     }
 
