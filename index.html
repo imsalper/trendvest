@@ -19,7 +19,7 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
   <!-- Stil Dosyası -->
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -503,6 +503,10 @@
 
         </div>
 
+        <div style="margin-bottom: 24px;">
+          <button class="btn-secondary" id="btnSharePortfolio" style="padding: 10px 20px;">📸 Kazancımı Paylaş</button>
+        </div>
+
         <!-- Portföy Boş Durumu -->
         <div id="portfolioEmptyState" style="display: none; text-align: center; padding: 50px 20px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); margin-bottom: 24px;">
           <div style="font-size: 2.8rem; margin-bottom: 12px;">🧺</div>
@@ -630,6 +634,21 @@
         <div class="modal-footer">
           <button class="btn-secondary" data-close-modal="modalSendGift">İptal</button>
           <button class="btn-primary" id="btnConfirmSendGift">🎁 Gönder</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 📸 Kazanç Paylaşım Kartı Modalı -->
+    <div class="modal-backdrop" id="modalSharePortfolio">
+      <div class="modal-dialog" style="max-width: 460px;">
+        <div class="modal-header">
+          <h3 class="modal-title">📸 Kazancımı Paylaş</h3>
+          <button class="modal-close-btn" data-close-modal="modalSharePortfolio">✕</button>
+        </div>
+        <canvas id="shareCardCanvas" width="1000" height="1250" style="width: 100%; border-radius: var(--radius-md); margin-bottom: 16px;"></canvas>
+        <div class="modal-footer">
+          <button class="btn-secondary" data-close-modal="modalSharePortfolio">Kapat</button>
+          <a class="btn-primary" id="btnDownloadShareCard" download="trendvest-kazanc.png" style="text-decoration: none; display: inline-flex; align-items: center;">⬇️ İndir</a>
         </div>
       </div>
     </div>
@@ -948,10 +967,10 @@
   </div>
 
   <!-- JavaScript Kodları -->
-  <script src="indicators.js?v=12"></script>
-  <script src="chart.js?v=12"></script>
-  <script src="screener.js?v=12"></script>
-  <script src="app.js?v=12"></script>
+  <script src="indicators.js?v=13"></script>
+  <script src="chart.js?v=13"></script>
+  <script src="screener.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 
   <!-- Firebase SDK & Başlatma -->
   <script type="module">

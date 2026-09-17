@@ -157,6 +157,10 @@
     portfolioProfitLossUSD: document.getElementById('portfolioProfitLossUSD'),
     portfolioProfitLossPct: document.getElementById('portfolioProfitLossPct'),
     portfolioAssetCount: document.getElementById('portfolioAssetCount'),
+    btnSharePortfolio: document.getElementById('btnSharePortfolio'),
+    modalSharePortfolio: document.getElementById('modalSharePortfolio'),
+    shareCardCanvas: document.getElementById('shareCardCanvas'),
+    btnDownloadShareCard: document.getElementById('btnDownloadShareCard'),
     portfolioTableContainer: document.getElementById('portfolioTableContainer'),
     portfolioGroupStock: document.getElementById('portfolioGroupStock'),
     portfolioGroupCrypto: document.getElementById('portfolioGroupCrypto'),
@@ -951,6 +955,100 @@
       dom.portfolioCryptoTableBody.innerHTML = cryptoRows.join('');
       dom.portfolioFundTableBody.innerHTML = fundRows.join('');
     }
+  }
+
+  // --- 📸 Kazanç Ekran Görüntüsü / Paylaşım Kartı ---
+  function generateShareCard() {
+    if (!state.userProfile) return;
+
+    const profile = state.userProfile;
+    const portfolio = profile.portfolio || [];
+    let assetValueUSD = 0;
+    portfolio.forEach(item => {
+      const curPrice = getCurrentAssetPrice(item.symbol);
+      assetValueUSD += item.shares * nativeToUsd(curPrice, item.type);
+    });
+    const totalUSD = (profile.balanceUSD || 0) + assetValueUSD;
+    const profitUSD = totalUSD - 10000.0;
+    const profitPct = (profitUSD / 10000.0) * 100;
+    const isProfit = profitUSD >= 0;
+
+    const canvas = dom.shareCardCanvas;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+
+    // Arka plan
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, H);
+    bgGradient.addColorStop(0, '#0d1322');
+    bgGradient.addColorStop(1, '#070a12');
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, W, H);
+
+    // Marka
+    ctx.fillStyle = '#06b6d4';
+    ctx.font = 'bold 44px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('📈 TrendVest', 60, 110);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '24px sans-serif';
+    ctx.fillText('Sanal Portföy Performansı', 60, 150);
+
+    // Kullanıcı
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '26px sans-serif';
+    ctx.fillText(profile.displayName || profile.email || 'Yatırımcı', 60, 210);
+
+    // Toplam değer
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 90px monospace';
+    ctx.fillText(`$${totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 60, 350);
+
+    // Kâr/Zarar rozeti
+    const sign = isProfit ? '+' : '';
+    ctx.fillStyle = isProfit ? '#10b981' : '#ef4444';
+    ctx.font = 'bold 52px monospace';
+    ctx.fillText(`${sign}$${profitUSD.toFixed(2)} (${sign}${profitPct.toFixed(2)}%)`, 60, 430);
+
+    // Ayraç
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(60, 490);
+    ctx.lineTo(W - 60, 490);
+    ctx.stroke();
+
+    // Alt bilgiler
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '28px sans-serif';
+    ctx.fillText(`🧺 ${portfolio.length} Pozisyon`, 60, 560);
+    ctx.fillText(`📅 ${new Date().toLocaleDateString('tr-TR')}`, 60, 610);
+
+    // Yasal uyarı (görselde de taşınmalı)
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 24px sans-serif';
+    wrapText(ctx, '⚠️ Bu görsel simüle sanal portföy sonucudur. Yatırım tavsiyesi veya gerçek finansal kazanç kanıtı değildir.', 60, H - 140, W - 120, 32);
+
+    ctx.fillStyle = '#475569';
+    ctx.font = '22px sans-serif';
+    ctx.fillText('trendvest.app — Global Market & AI Analytics', 60, H - 50);
+
+    dom.btnDownloadShareCard.href = canvas.toDataURL('image/png');
+  }
+
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let curY = y;
+    for (const word of words) {
+      const testLine = line + word + ' ';
+      if (ctx.measureText(testLine).width > maxWidth && line !== '') {
+        ctx.fillText(line, x, curY);
+        line = word + ' ';
+        curY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, curY);
   }
 
   // --- Admin Paneli: Kullanıcı Sepeti İnceleme ---
@@ -2249,6 +2347,14 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
 
     if (dom.btnConfirmSendGift) {
       dom.btnConfirmSendGift.addEventListener('click', () => confirmSendGift());
+    }
+
+    // 📸 Kazanç Paylaşım Kartı
+    if (dom.btnSharePortfolio) {
+      dom.btnSharePortfolio.addEventListener('click', () => {
+        generateShareCard();
+        openModal('modalSharePortfolio');
+      });
     }
 
     // Admin: Tablo İçi Aksiyonlar (Event Delegation)
