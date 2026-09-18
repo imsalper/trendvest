@@ -578,7 +578,7 @@
 
   function calcForexPnlTRY(item, currentRate) {
     const percentMove = ((currentRate - item.entryRate) / item.entryRate) * (item.direction === 'short' ? -1 : 1);
-    return item.marginTRY * item.leverage * percentMove;
+    return marginTRYOf(item) * item.leverage * percentMove;
   }
 
   // --- Sepetteki BIST/Kripto Varlıkların Canlı Fiyatı (ASSET_UNIVERSE'deki statik
@@ -645,8 +645,22 @@
   }
 
   // Ortalama alış fiyatı varlığın kendi para biriminde gösterilir (BIST/Fon → ₺, ABD/Kripto → $).
+  // TL geçişinden önce açılmış pozisyonlarda sadece avgCostUSD / marginUSD bulunur; bugünkü kurla TL'ye çevrilir.
+  // (Bu alanlar eksik olunca tablo çizimi hata verip tüm Sepetim ekranı boş görünüyordu.)
+  function costTRYOf(item) {
+    if (typeof item.avgCostTRY === 'number') return item.avgCostTRY;
+    if (typeof item.avgCostUSD === 'number') return item.avgCostUSD * (state.usdTryRate || FALLBACK_USD_TRY);
+    return 0;
+  }
+
+  function marginTRYOf(item) {
+    if (typeof item.marginTRY === 'number') return item.marginTRY;
+    if (typeof item.marginUSD === 'number') return item.marginUSD * (state.usdTryRate || FALLBACK_USD_TRY);
+    return 0;
+  }
+
   function avgCostNativeOf(item) {
-    return typeof item.avgCostNative === 'number' ? item.avgCostNative : tryToNative(item.avgCostTRY, item.type);
+    return typeof item.avgCostNative === 'number' ? item.avgCostNative : tryToNative(costTRYOf(item), item.type);
   }
 
   function escapeHtml(text) {
@@ -843,7 +857,7 @@
       if (existingIdx >= 0) {
         const existing = portfolio[existingIdx];
         const newShares = existing.shares + shares;
-        const newAvgCost = ((existing.shares * existing.avgCostTRY) + (shares * priceTRY)) / newShares;
+        const newAvgCost = ((existing.shares * costTRYOf(existing)) + (shares * priceTRY)) / newShares;
         const newAvgCostNative = ((existing.shares * avgCostNativeOf(existing)) + (shares * price)) / newShares;
         portfolio[existingIdx] = {
           ...existing,
@@ -916,7 +930,7 @@
     const currentPrice = getCurrentAssetPrice(currentSellItem.symbol);
     const currentPriceTRY = nativeToTry(currentPrice, currentSellItem.type);
     const returnTRY = sharesToSell * currentPriceTRY;
-    const costBasis = sharesToSell * currentSellItem.avgCostTRY;
+    const costBasis = sharesToSell * costTRYOf(currentSellItem);
     const profitLoss = returnTRY - costBasis;
     const profitPct = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
 
@@ -1059,7 +1073,7 @@
       delete state.fxPairRates[item.symbol]; // Kapanışta taze kur al
       const currentRate = await fetchFxPairRate(item.symbol);
       const pnlTRY = calcForexPnlTRY(item, currentRate);
-      const returnTRY = Math.max(0, item.marginTRY + pnlTRY);
+      const returnTRY = Math.max(0, marginTRYOf(item) + pnlTRY);
 
       const newPortfolio = portfolio.filter((_, i) => i !== idx);
       const newBalance = Number((state.userProfile.balanceTRY + returnTRY).toFixed(2));
@@ -1122,14 +1136,15 @@
     function buildForexRow(item) {
       const currentRate = forexRates[item.symbol] || item.entryRate;
       const pnlTRY = calcForexPnlTRY(item, currentRate);
-      const currentValueTRY = Math.max(0, item.marginTRY + pnlTRY);
-      const pnlPct = item.marginTRY > 0 ? (pnlTRY / item.marginTRY) * 100 : 0;
+      const marginTRY = marginTRYOf(item);
+      const currentValueTRY = Math.max(0, marginTRY + pnlTRY);
+      const pnlPct = marginTRY > 0 ? (pnlTRY / marginTRY) * 100 : 0;
       const isProfitable = pnlTRY >= 0;
       const sign = isProfitable ? '+' : '';
       const pairInfo = FOREX_PAIRS[item.symbol] || { label: item.symbol };
 
       totalAssetValueTRY += currentValueTRY;
-      totalCostBasisTRY += item.marginTRY;
+      totalCostBasisTRY += marginTRY;
 
       return `
         <tr>
@@ -1139,9 +1154,9 @@
           </td>
           <td>${item.direction === 'short' ? '📉 Sat' : '📈 Al'}</td>
           <td style="font-weight: 600;">${item.leverage}x</td>
-          <td>${item.entryRate.toFixed(4)}</td>
+          <td>${Number(item.entryRate || 0).toFixed(4)}</td>
           <td style="font-weight: 600;">${currentRate.toFixed(4)}</td>
-          <td>${fmtTRY(item.marginTRY)}</td>
+          <td>${fmtTRY(marginTRY)}</td>
           <td>
             <span class="change-pill ${isProfitable ? 'bullish' : 'bearish'}">
               ${sign}${fmtTRY(pnlTRY)} (${sign}${pnlPct.toFixed(2)}%)
@@ -1159,7 +1174,7 @@
       const curPrice = (typeof livePrice === 'number') ? livePrice : getCurrentAssetPrice(item.symbol);
       const curPriceTRY = nativeToTry(curPrice, item.type);
       const marketVal = item.shares * curPriceTRY;
-      const costVal = item.shares * item.avgCostTRY;
+      const costVal = item.shares * costTRYOf(item);
       const profitVal = marketVal - costVal;
       const profitPct = costVal > 0 ? (profitVal / costVal) * 100 : 0;
       const isProfitable = profitVal >= 0;
@@ -1265,7 +1280,7 @@
     portfolio.forEach(item => {
       if (item.type === 'forex') {
         const currentRate = (state.fxPairRates && state.fxPairRates[item.symbol]) || item.entryRate;
-        assetValueTRY += Math.max(0, item.marginTRY + calcForexPnlTRY(item, currentRate));
+        assetValueTRY += Math.max(0, marginTRYOf(item) + calcForexPnlTRY(item, currentRate));
         return;
       }
       const curPrice = getCurrentAssetPrice(item.symbol);
@@ -1374,7 +1389,7 @@
         const curPrice = getCurrentAssetPrice(item.symbol);
         const curPriceTRY = nativeToTry(curPrice, item.type);
         const mVal = item.shares * curPriceTRY;
-        const cVal = item.shares * item.avgCostTRY;
+        const cVal = item.shares * costTRYOf(item);
         const pVal = mVal - cVal;
         const pPct = cVal > 0 ? (pVal / cVal) * 100 : 0;
         const isProf = pVal >= 0;
