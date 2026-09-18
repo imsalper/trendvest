@@ -65,6 +65,11 @@ export default {
         return await handleBistQuote(request, ctx, url);
       }
 
+      // 3e. Detay grafiği için gerçek mum verisi (BIST / ABD hissesi / kripto — Yahoo Finance)
+      if (pathname === '/api/candles') {
+        return await handleCandles(request, ctx, url);
+      }
+
       // 4. AI Analiz Uç Noktası
       if (pathname === '/api/ai/analyze' && request.method === 'POST') {
         return await handleAIAnalysis(request, env);
@@ -323,6 +328,58 @@ async function handleBistQuote(request, ctx, url) {
       sma50: Math.round(calculateSMA(closes, Math.min(50, closes.length)) * 100) / 100,
       volumeRatio: avgVolume ? Math.round((lastVolume / avgVolume) * 100) / 100 : 1
     };
+  });
+}
+
+// Uygulamadaki zaman dilimi butonları → Yahoo aralık/periyot eşlemesi
+const CANDLE_TIMEFRAMES = {
+  '1D': { range: '1d', interval: '5m', cache: 60 },
+  '1W': { range: '5d', interval: '30m', cache: 300 },
+  '1M': { range: '1mo', interval: '1h', cache: 900 }, // günlükte ~22 mum olur; göstergeler için saatlik (~150 mum)
+  '1Y': { range: '1y', interval: '1d', cache: 3600 },
+  '5Y': { range: '5y', interval: '1wk', cache: 3600 },
+  'ALL': { range: 'max', interval: '1mo', cache: 3600 }
+};
+
+async function handleCandles(request, ctx, url) {
+  const symbol = (url.searchParams.get('symbol') || '').toUpperCase();
+  const type = (url.searchParams.get('type') || '').toLowerCase();
+  const tf = CANDLE_TIMEFRAMES[url.searchParams.get('tf')] || CANDLE_TIMEFRAMES['1M'];
+  if (!/^[A-Z0-9.]{1,12}$/.test(symbol)) return jsonResponse({ error: 'Geçersiz sembol' }, 400);
+
+  const yahooSymbol = { bist: `${symbol}.IS`, stock: symbol, crypto: `${symbol}-USD` }[type];
+  if (!yahooSymbol) return jsonResponse({ symbol, candles: [] }); // TEFAS fonları Yahoo'da yok
+
+  return cachedJson(request, ctx, url, tf.cache, async () => {
+    const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${tf.interval}&range=${tf.range}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrendVestBot/1.0)' }
+    });
+    const data = await res.json().catch(() => ({}));
+    const result = data?.chart?.result?.[0];
+    const q = result?.indicators?.quote?.[0];
+    if (!result || !q || !Array.isArray(result.timestamp)) return { symbol, candles: [] };
+
+    const candles = [];
+    result.timestamp.forEach((time, i) => {
+      const [open, high, low, close] = [q.open[i], q.high[i], q.low[i], q.close[i]];
+      if ([open, high, low, close].every(v => typeof v === 'number')) {
+        candles.push({ time, open, high, low, close, volume: q.volume?.[i] || 0 });
+      }
+    });
+
+    // Günlük değişim için bir önceki günün kapanışı (günlük mumlarla ayrıca çekilir)
+    let prevClose = null;
+    try {
+      const dRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=5d`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrendVestBot/1.0)' }
+      });
+      const dCloses = ((await dRes.json())?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(c => typeof c === 'number');
+      if (dCloses.length >= 2) prevClose = dCloses[dCloses.length - 2];
+    } catch (e) {
+      // günlük değişim hesaplanamazsa null kalır
+    }
+
+    return { symbol, candles, price: result.meta?.regularMarketPrice ?? candles[candles.length - 1]?.close ?? null, prevClose };
   });
 }
 

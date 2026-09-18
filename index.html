@@ -19,7 +19,7 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
   <!-- Stil Dosyası -->
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
@@ -96,13 +96,13 @@
       
       <!-- Arama Bölümü -->
       <div class="hero-search-section">
-        <h2 class="hero-title">BIST 10 Piyasalarını <span class="gradient-text">Veriyle Analiz Et</span></h2>
-        <p class="hero-subtitle">Borsa İstanbul'un lokomotif şirketlerini anlık takip edin, teknik indikatörler ve yapay zeka ile inceleyin</p>
+        <h2 class="hero-title">Borsa İstanbul'u <span class="gradient-text">Veriyle Analiz Et</span></h2>
+        <p class="hero-subtitle">Borsa İstanbul'daki tüm hisseleri anlık takip edin, teknik indikatörler ve yapay zeka ile inceleyin</p>
 
         <div class="search-bar-wrapper">
           <div class="search-input-group">
             <span class="search-icon">🔍</span>
-            <input type="text" id="globalSearchInput" class="search-input" placeholder="BIST hissesi ara (Örn: THYAO, AKBNK, GARAN, EREGL, ASELS)..." autocomplete="off">
+            <input type="text" id="globalSearchInput" class="search-input" placeholder="Hisse ara (Örn: THYAO, MANAS, ASELS)..." autocomplete="off">
             <button class="search-clear-btn" id="btnSearchClear">✕</button>
           </div>
 
@@ -282,11 +282,11 @@
         <div class="metric-box">
           <div class="metric-header">
             <span class="metric-label">RSI (14) Göreceli Güç</span>
-            <span id="metricRSIBadge" class="change-pill neutral">Nötr</span>
+            <span id="metricRSIBadge" class="change-pill neutral">—</span>
           </div>
-          <div class="metric-value-large" id="metricRSIValue">54.20</div>
+          <div class="metric-value-large" id="metricRSIValue">—</div>
           <div class="rsi-bar-track">
-            <div class="rsi-bar-fill" id="rsiBarFill" style="width: 54%; background-color: #f59e0b;"></div>
+            <div class="rsi-bar-fill" id="rsiBarFill" style="width: 0%; background-color: #f59e0b;"></div>
           </div>
           <div class="rsi-scale-labels">
             <span>0 Aşırı Satım</span>
@@ -294,27 +294,27 @@
             <span>70</span>
             <span>100 Aşırı Alım</span>
           </div>
-          <div class="metric-status-text" id="metricRSIStatus">Dengeli momentum bölgesinde seyrediyor.</div>
+          <div class="metric-status-text" id="metricRSIStatus">Veri yükleniyor...</div>
         </div>
 
         <!-- MACD (12, 26, 9) -->
         <div class="metric-box">
           <div class="metric-header">
             <span class="metric-label">MACD (12, 26, 9)</span>
-            <span id="metricMACDBadge" class="change-pill bullish">Pozitif</span>
+            <span id="metricMACDBadge" class="change-pill neutral">—</span>
           </div>
-          <div class="metric-value-large" id="metricMACDValue">+1.42</div>
-          <div class="metric-status-text" id="metricMACDStatus">MACD çizgisi sinyal hattının üzerinde, alım ivmesi pozitif.</div>
+          <div class="metric-value-large" id="metricMACDValue">—</div>
+          <div class="metric-status-text" id="metricMACDStatus">Veri yükleniyor...</div>
         </div>
 
         <!-- Hareketli Ortalamalar (SMA) -->
         <div class="metric-box">
           <div class="metric-header">
             <span class="metric-label">Hareketli Ortalamalar (SMA 20/50)</span>
-            <span id="metricSMABadge" class="change-pill bullish">Boğa Dizilimi</span>
+            <span id="metricSMABadge" class="change-pill neutral">—</span>
           </div>
-          <div class="metric-value-large" id="metricSMAValues">20: $218 | 50: $210</div>
-          <div class="metric-status-text" id="metricSMAStatus">Fiyat kısa ve orta vadeli hareketli ortalamaların üzerinde.</div>
+          <div class="metric-value-large" id="metricSMAValues">—</div>
+          <div class="metric-status-text" id="metricSMAStatus">Veri yükleniyor...</div>
         </div>
       </div>
 
@@ -1103,9 +1103,9 @@
 
   <!-- JavaScript Kodları -->
   <script src="indicators.js?v=26"></script>
-  <script src="chart.js?v=26"></script>
+  <script src="chart.js?v=29"></script>
   <script src="screener.js?v=26"></script>
-  <script src="app.js?v=26"></script>
+  <script src="app.js?v=29"></script>
 
   <!-- Firebase SDK & Başlatma -->
   <script type="module">

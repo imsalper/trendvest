@@ -1907,41 +1907,34 @@
     };
 
     state.activeAsset = { ...asset };
-    const curSymbol = currencySymbolFor(asset.type);
 
     // Başlık ve Rozetleri Güncelle
     dom.detailSymbolBadge.textContent = asset.symbol;
     dom.detailAssetName.textContent = asset.name;
     dom.detailExchangeBadge.textContent = asset.exchange;
     dom.detailAssetType.textContent = assetTypeLabel(asset.type);
-    dom.detailCurrentPrice.textContent = `${curSymbol}${asset.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    
-    const isBullish = asset.change24h >= 0;
-    dom.detailChange24h.className = `change-pill ${isBullish ? 'bullish' : 'bearish'}`;
-    dom.detailChange24h.textContent = `${isBullish ? '+' : ''}${asset.change24h.toFixed(2)}%`;
-    dom.detailPriceDiff.textContent = `${isBullish ? '+' : ''}${curSymbol}${((asset.basePrice * asset.change24h) / 100).toFixed(2)} Bugün`;
+    renderDetailPrice(asset);
 
     // Favori Yıldızını Güncelle
     const isFav = state.watchlist.includes(asset.symbol);
     dom.btnToggleFavorite.style.color = isFav ? '#fbbf24' : 'var(--text-muted)';
 
-    // Tarihsel Mum Verisini Çek veya Simüle Et
-    const candles = generateHistoricalCandles(asset.basePrice, state.currentTimeframe);
-    state.activeAsset.candles = candles;
-
-    // Grafiğe Yükle
-    if (state.chartInstance) {
-      state.chartInstance.setData(candles);
-    }
-
-    // Teknik Göstergeleri Hesapla ve Kartlara Yazdır
-    updateTechnicalPanels(candles);
+    // Gerçek mum verisi (yoksa örnek grafik) + teknik gösterge kartları
+    loadChartData(state.activeAsset);
 
     // Profil ve Haberler
     renderAssetProfileAndNews(asset);
 
     // AI Başlığını Senkronize Et
     dom.aiTargetAssetName.textContent = `${asset.name} (${asset.symbol})`;
+  }
+
+  // Yeterli mum yoksa kartta önceki varlığın/örnek değerin kalmaması için
+  function setMetricUnavailable(valueEl, badgeEl, statusEl) {
+    valueEl.textContent = '—';
+    badgeEl.className = 'change-pill neutral';
+    badgeEl.textContent = 'Yetersiz Veri';
+    statusEl.textContent = 'Bu zaman diliminde hesaplamak için yeterli mum yok; daha uzun bir zaman dilimi seçin.';
   }
 
   // --- İstemci Tarafı Teknik Gösterge Kartlarını Güncelleme ---
@@ -1973,6 +1966,9 @@
         dom.metricRSIBadge.textContent = 'Nötr Bölge';
       }
       dom.metricRSIStatus.textContent = trendInfo.rsiState;
+    } else {
+      setMetricUnavailable(dom.metricRSIValue, dom.metricRSIBadge, dom.metricRSIStatus);
+      dom.rsiBarFill.style.width = '0%';
     }
 
     // 3. MACD
@@ -1984,21 +1980,87 @@
       dom.metricMACDBadge.className = `change-pill ${lastM >= lastS ? 'bullish' : 'bearish'}`;
       dom.metricMACDBadge.textContent = lastM >= lastS ? 'Pozitif Momentum' : 'Negatif Kesişim';
       dom.metricMACDStatus.textContent = trendInfo.macdState;
+    } else {
+      setMetricUnavailable(dom.metricMACDValue, dom.metricMACDBadge, dom.metricMACDStatus);
     }
 
     // 4. SMA Durumu
-    if (trendInfo.lastSMA20 && trendInfo.lastSMA50) {
-      dom.metricSMAValues.textContent = `SMA20: $${trendInfo.lastSMA20} | SMA50: $${trendInfo.lastSMA50}`;
+    if (trendInfo.lastSMA20 && !trendInfo.lastSMA50) {
+      // Kısa zaman dilimlerinde (ör. 1 ay ≈ 22 mum) SMA50 için yeterli veri yok — eski değeri bırakma
+      const smaCur = currencySymbolFor(state.activeAsset?.type);
+      dom.metricSMAValues.textContent = `SMA20: ${smaCur}${Number(trendInfo.lastSMA20).toFixed(2)} | SMA50: —`;
+      dom.metricSMABadge.className = 'change-pill neutral';
+      dom.metricSMABadge.textContent = 'Yetersiz Veri';
+      dom.metricSMAStatus.textContent = 'SMA50 için en az 50 mum gerekir; 1Y veya 5Y görünümünü seçin.';
+    } else if (trendInfo.lastSMA20 && trendInfo.lastSMA50) {
+      const smaCur = currencySymbolFor(state.activeAsset?.type);
+      dom.metricSMAValues.textContent = `SMA20: ${smaCur}${Number(trendInfo.lastSMA20).toFixed(2)} | SMA50: ${smaCur}${Number(trendInfo.lastSMA50).toFixed(2)}`;
       dom.metricSMABadge.className = `change-pill ${trendInfo.lastSMA20 >= trendInfo.lastSMA50 ? 'bullish' : 'bearish'}`;
       dom.metricSMABadge.textContent = trendInfo.lastSMA20 >= trendInfo.lastSMA50 ? 'Boğa Eğilimi' : 'Ayı Eğilimi';
       dom.metricSMAStatus.textContent = trendInfo.smaState;
+    } else {
+      setMetricUnavailable(dom.metricSMAValues, dom.metricSMABadge, dom.metricSMAStatus);
     }
 
     // Durumu sakla (AI paneli için)
     state.activeAsset.technicals = trendInfo;
   }
 
-  // --- Gerçekçi Tarihsel Mum Verisi Üretici (TradingView Formatı) ---
+  function renderDetailPrice(asset) {
+    const curSymbol = currencySymbolFor(asset.type);
+    dom.detailCurrentPrice.textContent = `${curSymbol}${asset.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const isBullish = asset.change24h >= 0;
+    dom.detailChange24h.className = `change-pill ${isBullish ? 'bullish' : 'bearish'}`;
+    dom.detailChange24h.textContent = `${isBullish ? '+' : ''}${asset.change24h.toFixed(2)}%`;
+    dom.detailPriceDiff.textContent = `${isBullish ? '+' : ''}${curSymbol}${((asset.basePrice * asset.change24h) / 100).toFixed(2)} Bugün`;
+  }
+
+  // Grafiği worker'dan gelen gerçek mumlarla doldurur ve başlıktaki fiyatı canlı fiyatla günceller.
+  // Veri yoksa (ör. TEFAS fonları) örnek grafiğe düşer ve grafiğin üzerinde bunu açıkça belirtir.
+  let chartLoadSeq = 0;
+  async function loadChartData(asset) {
+    const seq = ++chartLoadSeq;
+    let live = null;
+    try {
+      const res = await fetch(`${state.workerUrl}/api/candles?symbol=${encodeURIComponent(asset.symbol)}&type=${asset.type}&tf=${state.currentTimeframe}`);
+      if (res.ok) live = await res.json();
+    } catch (e) {
+      console.warn('Mum verisi çekme uyarısı:', e);
+    }
+    if (seq !== chartLoadSeq || !state.activeAsset || state.activeAsset.symbol !== asset.symbol) return; // bu arada başka varlığa geçildi
+
+    const isReal = Boolean(live && Array.isArray(live.candles) && live.candles.length >= 5);
+    const candles = isReal ? live.candles : generateHistoricalCandles(asset.basePrice, state.currentTimeframe);
+
+    if (isReal && typeof live.price === 'number') {
+      const change24h = typeof live.prevClose === 'number' && live.prevClose > 0
+        ? Math.round(((live.price - live.prevClose) / live.prevClose) * 10000) / 100
+        : state.activeAsset.change24h;
+      Object.assign(state.activeAsset, { basePrice: live.price, price: live.price, change24h });
+      const listed = ASSET_UNIVERSE.find(a => a.symbol === asset.symbol);
+      if (listed) Object.assign(listed, { basePrice: live.price, change24h });
+      renderDetailPrice(state.activeAsset);
+    }
+
+    state.activeAsset.candles = candles;
+    if (state.chartInstance) state.chartInstance.setData(candles);
+    updateTechnicalPanels(candles);
+    setChartNotice(isReal ? '' : 'ℹ️ Bu varlık için canlı grafik verisi bulunamadı — gösterilen grafik temsilidir.');
+  }
+
+  function setChartNotice(text) {
+    let notice = document.getElementById('chartDataNotice');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.id = 'chartDataNotice';
+      notice.style.cssText = 'font-size: 0.78rem; color: #fbbf24; padding: 6px 2px;';
+      document.getElementById('chartContainer').before(notice);
+    }
+    notice.textContent = text;
+    notice.style.display = text ? 'block' : 'none';
+  }
+
+  // --- Yedek: Temsili Mum Verisi Üretici (canlı veri olmayan varlıklar için) ---
   function generateHistoricalCandles(currentPrice, timeframe) {
     let barCount = 60;
     let secondsStep = 86400; // 1 gün
@@ -2667,13 +2729,8 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
         btn.classList.add('active');
         state.currentTimeframe = btn.dataset.tf;
         
-        // Mumları yeniden oluştur ve yükle
-        const candles = generateHistoricalCandles(state.activeAsset.basePrice, state.currentTimeframe);
-        state.activeAsset.candles = candles;
-        if (state.chartInstance) {
-          state.chartInstance.setData(candles);
-        }
-        updateTechnicalPanels(candles);
+        // Seçilen zaman dilimi için mumları yeniden yükle
+        if (state.activeAsset) loadChartData(state.activeAsset);
       }
     });
 

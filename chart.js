@@ -146,6 +146,11 @@ class TrendVestChart {
       const { width, height } = entries[0].contentRect;
       if (width > 0 && height > 0) {
         this.chart.applyOptions({ width, height });
+        // Grafik gizli ekrandayken (genişlik 0) veri yüklendiyse, görünür olunca mumları yeniden sığdır
+        if (this.needsFit) {
+          this.chart.timeScale().fitContent();
+          this.needsFit = false;
+        }
       }
     });
 
@@ -185,8 +190,11 @@ class TrendVestChart {
     // Göstergeleri hesapla ve yükle
     this.updateIndicators();
 
-    // Zaman eksenini optimize sığdır
+    // Zaman eksenini optimize sığdır (kapsayıcı henüz görünmüyorsa görünür olduğunda tekrar sığdırılır)
     this.chart.timeScale().fitContent();
+    this.needsFit = this.container.clientWidth === 0;
+    // Ekran geçişiyle aynı anda yüklenen veride düzen bir kare sonra oturur; sığdırmayı orada tekrarla
+    requestAnimationFrame(() => this.chart && this.chart.timeScale().fitContent());
   }
 
   /**

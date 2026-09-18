@@ -1808,3 +1808,70 @@ body {
     height: 340px;
   }
 }
+
+/* Dar Telefon Ekranları: üst menü tek satıra sığsın, yatay kaydırma olmasın */
+@media (max-width: 480px) {
+  .navbar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .nav-brand {
+    gap: 8px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .brand-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 1.1rem;
+  }
+
+  .brand-text h1 {
+    font-size: 1.02rem;
+  }
+
+  .brand-text span {
+    display: none;
+  }
+
+  .nav-actions {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .region-badge {
+    padding: 6px 10px;
+    gap: 4px;
+  }
+
+  .region-label {
+    display: none;
+  }
+
+  /* Giriş yapılınca e-posta görünür; tek satırda kalıp gerekirse "…" ile kısalsın */
+  #btnOpenAuthModal {
+    padding: 0 10px !important;
+    max-width: 96px;
+    white-space: nowrap;
+  }
+
+  #authNavLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .icon-btn {
+    height: 34px;
+    min-width: 34px;
+  }
+}
+
+/* Çok dar ekranlar (ör. iPhone SE 1. nesil, 320px): logoda sadece simge kalsın */
+@media (max-width: 360px) {
+  .brand-text {
+    display: none;
+  }
+}
