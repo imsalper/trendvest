@@ -1078,15 +1078,21 @@ async function runAutoTradingBot(env) {
     if (pos.type === 'forex') {
       const rate = await getForexRate(pos.symbol);
       if (!rate) return null;
+      // TL geçişinden önceki pozisyonlarda sadece marginUSD var
+      const marginTRY = pos.marginTRY ?? (typeof pos.marginUSD === 'number' ? pos.marginUSD * usdTryRate : null);
+      if (!marginTRY || !pos.entryRate) return null;
       const move = ((rate - pos.entryRate) / pos.entryRate) * (pos.direction === 'short' ? -1 : 1);
-      const pnlTRY = pos.marginTRY * pos.leverage * move;
-      return { valueTRY: Math.max(0, pos.marginTRY + pnlTRY), pnlPct: (pnlTRY / pos.marginTRY) * 100, exitPrice: rate };
+      const pnlTRY = marginTRY * pos.leverage * move;
+      return { valueTRY: Math.max(0, marginTRY + pnlTRY), pnlPct: (pnlTRY / marginTRY) * 100, exitPrice: rate };
     }
     const priceTRY = pos.type === 'bist'
       ? await getBistPriceTRY(pos.symbol)
       : ((await getCryptoPriceUSD(pos.symbol)) || 0) * usdTryRate;
     if (!priceTRY) return null;
-    return { valueTRY: pos.shares * priceTRY, pnlPct: ((priceTRY - pos.avgCostTRY) / pos.avgCostTRY) * 100, exitPrice: Math.round(priceTRY * 100) / 100 };
+    // TL geçişinden önce açılmış pozisyonlarda sadece avgCostUSD var; bugünkü kurla TL maliyete çevrilir
+    const costTRY = pos.avgCostTRY ?? (typeof pos.avgCostUSD === 'number' ? pos.avgCostUSD * usdTryRate : null);
+    if (!costTRY) return null; // maliyeti bilinmeyen pozisyonu körlemesine satma
+    return { valueTRY: pos.shares * priceTRY, pnlPct: ((priceTRY - costTRY) / costTRY) * 100, exitPrice: Math.round(priceTRY * 100) / 100, costTRY };
   }
 
   // Aday için ₺budget'lık yeni bot pozisyonu oluşturur (fiyat alınamazsa null)
@@ -1144,7 +1150,7 @@ async function runAutoTradingBot(env) {
             market,
             action: v.pnlPct >= BOT_TAKE_PROFIT_PCT ? 'TAKE_PROFIT' : 'STOP_LOSS',
             ...(market === 'forex' ? { direction: pos.direction } : {}),
-            buyPrice: market === 'forex' ? pos.entryRate : pos.avgCostTRY,
+            buyPrice: market === 'forex' ? pos.entryRate : Math.round(v.costTRY * 100) / 100,
             sellPrice: v.exitPrice,
             pnlPct: Math.round(v.pnlPct * 100) / 100,
             closedAt: new Date().toISOString()
