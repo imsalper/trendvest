@@ -2,9 +2,9 @@ name = "trendvest-proxy"
 main = "worker.js"
 compatibility_date = "2024-09-01"
 
-# 🤖 Otomatik AI Sepet Botu — her 15 dakikada bir piyasayı tarar
+# 🤖 Otomatik AI Sepet Botu — her dakika piyasayı tarar (Cloudflare cron alt sınırı 1 dk)
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["* * * * *"]
 
 # Environment Variables & Secrets (Tanımlanacak Gizli Anahtarlar):
 # FINNHUB_API_KEY

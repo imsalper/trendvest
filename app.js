@@ -1699,7 +1699,7 @@
       await window.fb.updateUserDoc(state.currentUser.uid, { autoTradingEnabled: checked });
       state.userProfile.autoTradingEnabled = checked;
       if (checked) {
-        alert('🤖 Otomatik AI Sepet Botu açıldı! En yakın taramada (15 dakika içinde) piyasayı kontrol edip uygun fırsat bulursa sepetine otomatik ekleyecek.');
+        alert('🤖 Otomatik AI Sepet Botu açıldı! Bir dakika içinde piyasayı kontrol edip uygun fırsat bulursa sepetine otomatik ekleyecek.');
       }
     } catch (err) {
       alert(`Ayar kaydedilemedi: ${err.message}`);
@@ -1713,7 +1713,7 @@
       await window.fb.updateUserDoc(state.currentUser.uid, { autoTradingCryptoEnabled: checked });
       state.userProfile.autoTradingCryptoEnabled = checked;
       if (checked) {
-        alert('🪙 Otomatik Kripto Sepet Botu açıldı! En yakın taramada (15 dakika içinde) piyasayı kontrol edip uygun fırsat bulursa sepetine otomatik ekleyecek.');
+        alert('🪙 Otomatik Kripto Sepet Botu açıldı! Bir dakika içinde piyasayı kontrol edip uygun fırsat bulursa sepetine otomatik ekleyecek.');
       }
     } catch (err) {
       alert(`Ayar kaydedilemedi: ${err.message}`);
@@ -1727,7 +1727,7 @@
       await window.fb.updateUserDoc(state.currentUser.uid, { autoTradingForexEnabled: checked });
       state.userProfile.autoTradingForexEnabled = checked;
       if (checked) {
-        alert('💱 Otomatik Forex Sepet Botu açıldı! En yakın taramada (15 dakika içinde) pariteleri kontrol edip uygun fırsat bulursa sanal bakiyenle pozisyon açacak.');
+        alert('💱 Otomatik Forex Sepet Botu açıldı! Bir dakika içinde pariteleri kontrol edip uygun fırsat bulursa sanal bakiyenle pozisyon açacak.');
       }
     } catch (err) {
       alert(`Ayar kaydedilemedi: ${err.message}`);
