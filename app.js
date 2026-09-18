@@ -659,6 +659,21 @@
     return 0;
   }
 
+  function isLegacyUsdPosition(item) {
+    return item.type === 'forex' ? typeof item.marginTRY !== 'number' : typeof item.avgCostTRY !== 'number';
+  }
+
+  // Alım/satımdan hemen önce portföy ve nakdi veritabanından tazeler. Aksi halde uzun süredir açık bir
+  // sekme, ekrandaki eski portföyü yazıp arka planda botun yaptığı alımları silebilir.
+  async function refreshProfileFromDb() {
+    if (!state.currentUser || !state.userProfile) return;
+    const snap = await window.fb.getUserDoc(state.currentUser.uid);
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (Array.isArray(data.portfolio)) state.userProfile.portfolio = data.portfolio;
+    if (typeof data.balanceTRY === 'number') state.userProfile.balanceTRY = data.balanceTRY;
+  }
+
   function avgCostNativeOf(item) {
     return typeof item.avgCostNative === 'number' ? item.avgCostNative : tryToNative(costTRYOf(item), item.type);
   }
@@ -695,6 +710,14 @@
           };
           await window.fb.updateUserDoc(user.uid, resetFields);
           Object.assign(data, resetFields);
+        }
+
+        // Sıfırlamadan sonra eski bir sekmenin geri yazdığı USD dönemi pozisyonları TL bakiyeden hiç
+        // düşülmeden portföye girmiş olur (bedava varlık = sahte kâr). Nakit eklemeden temizlenir.
+        const cleanPortfolio = (Array.isArray(data.portfolio) ? data.portfolio : []).filter(p => !isLegacyUsdPosition(p));
+        if (Array.isArray(data.portfolio) && cleanPortfolio.length !== data.portfolio.length) {
+          await window.fb.updateUserDoc(user.uid, { portfolio: cleanPortfolio });
+          data.portfolio = cleanPortfolio;
         }
 
         state.userProfile = {
@@ -830,6 +853,7 @@
 
   async function confirmAddToBasket() {
     if (!state.currentUser || !state.userProfile || !currentModalAsset) return;
+    await refreshProfileFromDb(); // eski sekme botun alımlarını ezmesin
 
     const shares = parseFloat(dom.basketInputShares.value);
     const price = parseFloat(dom.basketInputPrice.value);
@@ -954,6 +978,16 @@
 
   async function confirmSellFromBasket() {
     if (!state.currentUser || !state.userProfile || !currentSellItem) return;
+    await refreshProfileFromDb(); // eski sekme botun alımlarını ezmesin
+    const freshItem = state.userProfile.portfolio.find(p => p.symbol === currentSellItem.symbol && p.type === currentSellItem.type);
+    if (!freshItem) {
+      // Bu arada bot satmış olabilir; olmayan pozisyon için nakit eklenmesin
+      dom.sellErrorMsg.textContent = 'Bu pozisyon artık sepetinizde yok (bot satmış olabilir). Sayfayı yenileyin.';
+      dom.sellErrorMsg.style.display = 'block';
+      renderPortfolioUI();
+      return;
+    }
+    currentSellItem = freshItem;
     const sharesToSell = parseFloat(dom.sellInputShares.value);
     if (!sharesToSell || sharesToSell <= 0 || sharesToSell > currentSellItem.shares) {
       dom.sellErrorMsg.textContent = 'Geçersiz satış miktarı.';
@@ -1011,6 +1045,8 @@
       return;
     }
 
+    await refreshProfileFromDb(); // eski sekme botun alımlarını ezmesin
+
     const pair = dom.forexPairSelect.value;
     const direction = dom.forexDirectionSelect.value;
     const leverage = Number(dom.forexLeverageSelect.value);
@@ -1062,6 +1098,7 @@
 
   async function closeForexPosition(id) {
     if (!state.currentUser || !state.userProfile) return;
+    await refreshProfileFromDb(); // eski sekme botun alımlarını ezmesin
     const portfolio = state.userProfile.portfolio || [];
     const idx = portfolio.findIndex(p => p.id === id);
     if (idx < 0) return;

@@ -1081,9 +1081,9 @@ async function runAutoTradingBot(env) {
     if (pos.type === 'forex') {
       const rate = await getForexRate(pos.symbol);
       if (!rate) return null;
-      // TL geçişinden önceki pozisyonlarda sadece marginUSD var
-      const marginTRY = pos.marginTRY ?? (typeof pos.marginUSD === 'number' ? pos.marginUSD * usdTryRate : null);
-      if (!marginTRY || !pos.entryRate) return null;
+      // TL geçişinden önceki (marginUSD'li) pozisyonlar TL bakiyeden ödenmedi; satılırsa sahte nakit üretir, dokunma
+      const marginTRY = pos.marginTRY;
+      if (typeof marginTRY !== 'number' || !pos.entryRate) return null;
       const move = ((rate - pos.entryRate) / pos.entryRate) * (pos.direction === 'short' ? -1 : 1);
       const pnlTRY = marginTRY * pos.leverage * move;
       return { valueTRY: Math.max(0, marginTRY + pnlTRY), pnlPct: (pnlTRY / marginTRY) * 100, exitPrice: rate };
@@ -1092,9 +1092,10 @@ async function runAutoTradingBot(env) {
       ? await getBistPriceTRY(pos.symbol)
       : ((await getCryptoPriceUSD(pos.symbol)) || 0) * usdTryRate;
     if (!priceTRY) return null;
-    // TL geçişinden önce açılmış pozisyonlarda sadece avgCostUSD var; bugünkü kurla TL maliyete çevrilir
-    const costTRY = pos.avgCostTRY ?? (typeof pos.avgCostUSD === 'number' ? pos.avgCostUSD * usdTryRate : null);
-    if (!costTRY) return null; // maliyeti bilinmeyen pozisyonu körlemesine satma
+    // TL geçişinden önceki (avgCostUSD'li) pozisyonlar TL bakiyeden ödenmedi; satılırsa sahte nakit üretir, dokunma.
+    // (Uygulama bu pozisyonları kullanıcı girişinde temizliyor.)
+    const costTRY = pos.avgCostTRY;
+    if (typeof costTRY !== 'number' || !costTRY) return null;
     return { valueTRY: pos.shares * priceTRY, pnlPct: ((priceTRY - costTRY) / costTRY) * 100, exitPrice: Math.round(priceTRY * 100) / 100, costTRY };
   }
 
@@ -1163,7 +1164,7 @@ async function runAutoTradingBot(env) {
         }
 
         // 2) Alım: sepette boş yer varsa en yüksek puanlı adaylardan, her biri en fazla ₺10.000
-        let openCount = portfolio.filter(p => p.managedByBot === true && p.type === market).length;
+        let openCount = portfolio.filter(p => p.managedByBot === true && p.type === market && typeof (market === 'forex' ? p.marginTRY : p.avgCostTRY) === 'number').length; // eski USD pozisyonları sepet kotasını doldurmasın
         if (openCount >= BOT_MAX_POSITIONS_PER_MARKET) continue;
         const heldSymbols = new Set(portfolio.filter(p => p.type === market).map(p => p.symbol));
         for (const cand of await getCandidates(market)) {
