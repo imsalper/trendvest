@@ -15,7 +15,7 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
       allow update: if isAdmin()
-        || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'portfolio', 'balanceUSD', 'localCurrency', 'gems', 'ownedItems', 'showOnLeaderboard', 'autoTradingEnabled']));
+        || (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'portfolio', 'balanceTRY', 'localCurrency', 'gems', 'ownedItems', 'showOnLeaderboard', 'autoTradingEnabled', 'autoTradingCryptoEnabled', 'autoTradingForexEnabled', 'accountCurrencyVersion']));
       allow delete: if isAdmin();
     }
 
@@ -32,7 +32,7 @@ service cloud.firestore {
     // özet skorunu yayınlar; sadece kendi kaydını yazabilir/silebilir.
     match /leaderboardEntries/{userId} {
       allow read: if request.auth != null;
-      allow write: if isOwner(userId) && request.resource.data.keys().hasOnly(['displayName', 'totalUSD', 'profitPct', 'updatedAt']);
+      allow write: if isOwner(userId) && request.resource.data.keys().hasOnly(['displayName', 'totalTRY', 'profitPct', 'updatedAt']);
       allow delete: if isOwner(userId) || isAdmin();
     }
 

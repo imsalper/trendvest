@@ -67,12 +67,17 @@
     return 'Hisse Senedi';
   }
 
+  // --- Sanal Hesap Sabitleri (TL tabanlı) ---
+  const STARTING_BALANCE_TRY = 250000;
+  const FALLBACK_USD_TRY = 48.70; // Kur servisine ulaşılamazsa kullanılır
+  const ACCOUNT_CURRENCY_VERSION = 2; // 2 = TL tabanlı hesap (eski USD hesapları bu sürüme sıfırlanır)
+
   // --- Varsayılan Yapılandırma & Durum (State) ---
   const state = {
     currentUser: null,
     userProfile: null,
     liveRates: {},
-    usdTryRate: 34.50,
+    usdTryRate: FALLBACK_USD_TRY,
     authMode: 'login', // 'login' | 'signup'
     workerUrl: localStorage.getItem('trendvest_worker_url') || 'https://trendvest-proxy.imsalper.workers.dev',
     currentScreen: 'screen-home',
@@ -152,10 +157,10 @@
     portfolioGuestState: document.getElementById('portfolioGuestState'),
     portfolioUserState: document.getElementById('portfolioUserState'),
     portfolioEmptyState: document.getElementById('portfolioEmptyState'),
-    portfolioTotalValueUSD: document.getElementById('portfolioTotalValueUSD'),
+    portfolioTotalValueTRY: document.getElementById('portfolioTotalValueTRY'),
     portfolioTotalValueLocal: document.getElementById('portfolioTotalValueLocal'),
-    portfolioCashUSD: document.getElementById('portfolioCashUSD'),
-    portfolioProfitLossUSD: document.getElementById('portfolioProfitLossUSD'),
+    portfolioCashTRY: document.getElementById('portfolioCashTRY'),
+    portfolioProfitLossTRY: document.getElementById('portfolioProfitLossTRY'),
     portfolioProfitLossPct: document.getElementById('portfolioProfitLossPct'),
     portfolioAssetCount: document.getElementById('portfolioAssetCount'),
     btnSharePortfolio: document.getElementById('btnSharePortfolio'),
@@ -173,6 +178,15 @@
     portfolioStockCount: document.getElementById('portfolioStockCount'),
     portfolioCryptoCount: document.getElementById('portfolioCryptoCount'),
     portfolioFundCount: document.getElementById('portfolioFundCount'),
+    portfolioGroupForex: document.getElementById('portfolioGroupForex'),
+    portfolioForexTableBody: document.getElementById('portfolioForexTableBody'),
+    portfolioForexCount: document.getElementById('portfolioForexCount'),
+    forexPairSelect: document.getElementById('forexPairSelect'),
+    forexDirectionSelect: document.getElementById('forexDirectionSelect'),
+    forexLeverageSelect: document.getElementById('forexLeverageSelect'),
+    forexMarginInput: document.getElementById('forexMarginInput'),
+    btnOpenForexPosition: document.getElementById('btnOpenForexPosition'),
+    forexOpenPreview: document.getElementById('forexOpenPreview'),
 
     // 🎁 Kozmetik Mağaza & Hediyeleşme
     storeGuestState: document.getElementById('storeGuestState'),
@@ -192,6 +206,8 @@
     leaderboardOptInBox: document.getElementById('leaderboardOptInBox'),
     leaderboardOptInCheckbox: document.getElementById('leaderboardOptInCheckbox'),
     autoTradingCheckbox: document.getElementById('autoTradingCheckbox'),
+    autoTradingCryptoCheckbox: document.getElementById('autoTradingCryptoCheckbox'),
+    autoTradingForexCheckbox: document.getElementById('autoTradingForexCheckbox'),
     leaderboardTableBody: document.getElementById('leaderboardTableBody'),
     leaderboardEmptyState: document.getElementById('leaderboardEmptyState'),
     giftItemPreview: document.getElementById('giftItemPreview'),
@@ -209,7 +225,7 @@
     currentRegionFlag: document.getElementById('currentRegionFlag'),
     currentRegionName: document.getElementById('currentRegionName'),
     bistNoticeBanner: document.getElementById('bistNoticeBanner'),
-    
+
     // Arama
     globalSearchInput: document.getElementById('globalSearchInput'),
     btnSearchClear: document.getElementById('btnSearchClear'),
@@ -295,7 +311,7 @@
     sellModalCurrentShares: document.getElementById('sellModalCurrentShares'),
     sellModalMarketPrice: document.getElementById('sellModalMarketPrice'),
     sellInputShares: document.getElementById('sellInputShares'),
-    sellCalcReturnUSD: document.getElementById('sellCalcReturnUSD'),
+    sellCalcReturnTRY: document.getElementById('sellCalcReturnTRY'),
     sellModalAvgCostDisplay: document.getElementById('sellModalAvgCostDisplay'),
     sellCalcProfitLossDisplay: document.getElementById('sellCalcProfitLossDisplay'),
     sellErrorMsg: document.getElementById('sellErrorMsg'),
@@ -395,7 +411,9 @@
         await window.fb.createUserDoc(cred.user.uid, {
           email,
           displayName,
-          balanceUSD: 10000,
+          balanceTRY: STARTING_BALANCE_TRY,
+          portfolio: [],
+          accountCurrencyVersion: ACCOUNT_CURRENCY_VERSION,
           gems: 100,
           ownedItems: [],
           status: 'active',
@@ -454,7 +472,7 @@
             </td>
             <td>${createdDate}</td>
             <td>
-              <input type="number" class="form-control admin-balance-input" data-uid="${uid}" value="${u.balanceUSD ?? 0}" style="width: 110px; padding: 6px 10px;">
+              <input type="number" class="form-control admin-balance-input" data-uid="${uid}" value="${u.balanceTRY ?? 0}" style="width: 140px; padding: 6px 10px;">
             </td>
             <td>
               <span style="padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; ${isSuspended ? 'background: rgba(239,68,68,0.15); color:#ef4444;' : 'background: rgba(16,185,129,0.15); color:#10b981;'}">
@@ -483,7 +501,7 @@
       } else if (action === 'save-balance') {
         const input = rowEl.querySelector('.admin-balance-input');
         const newBalance = parseFloat(input.value);
-        await window.fb.updateUserDoc(uid, { balanceUSD: newBalance });
+        await window.fb.updateUserDoc(uid, { balanceTRY: newBalance });
         loadAdminUsers();
       } else if (action === 'toggle-status') {
         const btn = rowEl.querySelector('[data-admin-action="toggle-status"]');
@@ -512,11 +530,11 @@
     { id: 'emoji_wizard', emoji: '🧙', name: 'Grafik Büyücüsü', price: 60, desc: 'Teknik analiz tutkunlarına özel.' },
     { id: 'emoji_shield', emoji: '🛡️', name: 'Sağlam Portföy Kalkanı', price: 45, desc: 'Riskten kaçınan, dengeli yatırımcı rozeti.' },
     { id: 'emoji_fire', emoji: '🔥', name: 'Ateşli Seri Rozeti', price: 45, desc: 'Art arda başarılı işlemleri kutla.' },
-    { id: 'badge_millionaire', emoji: '🏆', name: 'Efsanevi Yatırımcı', price: null, purchasable: false, desc: 'Sanal portföyünü $1.000.000\'a çıkaranlara özel — satın alınamaz, kazanılır.' }
+    { id: 'badge_millionaire', emoji: '🏆', name: 'Efsanevi Yatırımcı', price: null, purchasable: false, desc: 'Sanal portföyünü ₺25.000.000\'a çıkaranlara özel — satın alınamaz, kazanılır.' }
   ];
 
   const MILLIONAIRE_BADGE_ID = 'badge_millionaire';
-  const MILLIONAIRE_THRESHOLD_USD = 1000000;
+  const MILLIONAIRE_THRESHOLD_TRY = 25000000;
 
   // --- 💎 Elmas Paketleri (Gerçek Para — Ödeme Altyapısı Henüz Bağlı Değil) ---
   const GEM_PACKS = [
@@ -526,9 +544,61 @@
     { id: 'pack_mega', gems: 1500, bonus: 500, priceTRY: 179.99, label: '👑 En Avantajlı' }
   ];
 
+  // --- 💱 Forex Sepeti (Kaldıraçlı Simülasyon) ---
+  const FOREX_PAIRS = {
+    EURUSD: { label: 'EUR/USD', fallbackRate: 1.08 },
+    GBPUSD: { label: 'GBP/USD', fallbackRate: 1.27 },
+    USDJPY: { label: 'USD/JPY', fallbackRate: 149.0 },
+    USDTRY: { label: 'USD/TRY', fallbackRate: FALLBACK_USD_TRY },
+    EURTRY: { label: 'EUR/TRY', fallbackRate: 55.90 }
+  };
+
+  async function fetchFxPairRate(pair) {
+    if (!state.fxPairRates) state.fxPairRates = {};
+    if (state.fxPairRates[pair]) return state.fxPairRates[pair];
+
+    const from = pair.slice(0, 3);
+    const to = pair.slice(3, 6);
+    try {
+      const res = await fetch(`${state.workerUrl}/api/fx/rate?from=${from}&to=${to}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.rate) {
+          state.fxPairRates[pair] = data.rate;
+          return data.rate;
+        }
+      }
+    } catch (e) {
+      console.warn('Forex kur çekme uyarısı, varsayılan kur kullanılıyor:', e);
+    }
+    const fallback = (FOREX_PAIRS[pair] || {}).fallbackRate || 1.0;
+    state.fxPairRates[pair] = fallback;
+    return fallback;
+  }
+
+  function calcForexPnlTRY(item, currentRate) {
+    const percentMove = ((currentRate - item.entryRate) / item.entryRate) * (item.direction === 'short' ? -1 : 1);
+    return item.marginTRY * item.leverage * percentMove;
+  }
+
+  // --- Sepetteki BIST/Kripto Varlıkların Canlı Fiyatı (ASSET_UNIVERSE'deki statik
+  // örnek fiyatlarla karışıp yanlış kâr/zarar göstermesin diye worker'dan çekilir) ---
+  async function fetchLivePrice(symbol, type) {
+    try {
+      const res = await fetch(`${state.workerUrl}/api/live-price?symbol=${encodeURIComponent(symbol)}&type=${type}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.price === 'number') return data.price;
+      }
+    } catch (e) {
+      console.warn('Canlı fiyat çekme uyarısı:', e);
+    }
+    return null;
+  }
+
   // --- Para Birimleri & Canlı Kur Çevrimi ---
   const COUNTRY_CURRENCIES = {
-    'TR': { code: 'TRY', symbol: '₺', defaultRate: 34.50 },
+    'TR': { code: 'TRY', symbol: '₺', defaultRate: FALLBACK_USD_TRY },
     'US': { code: 'USD', symbol: '$', defaultRate: 1.00 },
     'DE': { code: 'EUR', symbol: '€', defaultRate: 0.92 },
     'GB': { code: 'GBP', symbol: '£', defaultRate: 0.77 },
@@ -555,15 +625,37 @@
     }
 
     const match = Object.values(COUNTRY_CURRENCIES).find(c => c.code === currencyCode);
-    const rate = match ? match.defaultRate : 34.50;
+    const rate = match ? match.defaultRate : FALLBACK_USD_TRY;
     state.liveRates[currencyCode] = rate;
     if (currencyCode === 'TRY') state.usdTryRate = rate;
     return rate;
   }
 
-  // --- Yerel Para Birimli Varlıkların USD Karşılığı (Sepet/Bakiye Muhasebesi İçin) ---
-  function nativeToUsd(price, type) {
-    return (type === 'bist' || type === 'fund') ? price / (state.usdTryRate || 34.50) : price;
+  // --- Sanal hesap TL'dir: BIST/Fon zaten TL, ABD hissesi ve kripto USD fiyatlıdır → kurla TL'ye çevrilir ---
+  function isTryAsset(type) {
+    return type === 'bist' || type === 'fund';
+  }
+
+  function nativeToTry(price, type) {
+    return isTryAsset(type) ? price : price * (state.usdTryRate || FALLBACK_USD_TRY);
+  }
+
+  function tryToNative(priceTRY, type) {
+    return isTryAsset(type) ? priceTRY : priceTRY / (state.usdTryRate || FALLBACK_USD_TRY);
+  }
+
+  // Ortalama alış fiyatı varlığın kendi para biriminde gösterilir (BIST/Fon → ₺, ABD/Kripto → $).
+  function avgCostNativeOf(item) {
+    return typeof item.avgCostNative === 'number' ? item.avgCostNative : tryToNative(item.avgCostTRY, item.type);
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
+
+  function fmtTRY(amount) {
+    const abs = Math.abs(amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `${amount < 0 ? '-' : ''}₺${abs}`;
   }
 
   // --- Kullanıcı Profili ve Portföy Verisi ---
@@ -579,16 +671,30 @@
       const snap = await window.fb.getUserDoc(user.uid);
       if (snap.exists()) {
         const data = snap.data();
+
+        // Eski USD tabanlı hesaplar TL'ye geçişte sıfırlanır: 250.000 TL nakit, boş portföy.
+        if (data.accountCurrencyVersion !== ACCOUNT_CURRENCY_VERSION) {
+          const resetFields = {
+            balanceTRY: STARTING_BALANCE_TRY,
+            portfolio: [],
+            accountCurrencyVersion: ACCOUNT_CURRENCY_VERSION
+          };
+          await window.fb.updateUserDoc(user.uid, resetFields);
+          Object.assign(data, resetFields);
+        }
+
         state.userProfile = {
           uid: user.uid,
           email: user.email,
           displayName: data.displayName || user.email.split('@')[0],
-          balanceUSD: typeof data.balanceUSD === 'number' ? data.balanceUSD : 10000.0,
+          balanceTRY: typeof data.balanceTRY === 'number' ? data.balanceTRY : STARTING_BALANCE_TRY,
           portfolio: Array.isArray(data.portfolio) ? data.portfolio : [],
           gems: typeof data.gems === 'number' ? data.gems : 100,
           ownedItems: Array.isArray(data.ownedItems) ? data.ownedItems : [],
           showOnLeaderboard: Boolean(data.showOnLeaderboard),
           autoTradingEnabled: Boolean(data.autoTradingEnabled),
+          autoTradingCryptoEnabled: Boolean(data.autoTradingCryptoEnabled),
+          autoTradingForexEnabled: Boolean(data.autoTradingForexEnabled),
           status: data.status || 'active',
           localCurrency: data.localCurrency || 'TRY'
         };
@@ -596,12 +702,15 @@
         const defaultProfile = {
           email: user.email,
           displayName: user.email.split('@')[0],
-          balanceUSD: 10000.0,
+          balanceTRY: STARTING_BALANCE_TRY,
           portfolio: [],
+          accountCurrencyVersion: ACCOUNT_CURRENCY_VERSION,
           gems: 100,
           ownedItems: [],
           showOnLeaderboard: false,
           autoTradingEnabled: false,
+          autoTradingCryptoEnabled: false,
+          autoTradingForexEnabled: false,
           status: 'active',
           localCurrency: 'TRY',
           createdAt: window.fb.serverTimestamp()
@@ -616,12 +725,14 @@
         uid: user.uid,
         email: user.email,
         displayName: user.email.split('@')[0],
-        balanceUSD: 10000.0,
+        balanceTRY: STARTING_BALANCE_TRY,
         portfolio: [],
         gems: 100,
         ownedItems: [],
         showOnLeaderboard: false,
         autoTradingEnabled: false,
+        autoTradingCryptoEnabled: false,
+        autoTradingForexEnabled: false,
         status: 'active',
         localCurrency: 'TRY'
       };
@@ -660,6 +771,9 @@
     dom.basketModalAssetType.textContent = assetTypeLabel(targetAsset.type);
     dom.basketModalMarketPrice.textContent = `${currencySymbolFor(targetAsset.type)}${currentPrice.toFixed(2)}`;
 
+    const priceLabel = document.getElementById('basketPriceLabel');
+    if (priceLabel) priceLabel.textContent = `Birim Alış Fiyatı (${currencySymbolFor(targetAsset.type) === '₺' ? 'TL' : 'USD'})`;
+
     dom.basketInputShares.value = '1';
     dom.basketInputPrice.value = currentPrice.toFixed(2);
     dom.basketErrorMsg.style.display = 'none';
@@ -671,18 +785,24 @@
   function updateBasketCalculations() {
     const shares = parseFloat(dom.basketInputShares.value) || 0;
     const price = parseFloat(dom.basketInputPrice.value) || 0;
-    const priceUSD = nativeToUsd(price, currentModalAsset?.type);
-    const totalCost = shares * priceUSD;
-    const userCash = state.userProfile ? state.userProfile.balanceUSD : 10000.0;
+    const priceTRY = nativeToTry(price, currentModalAsset?.type);
+    const totalCost = shares * priceTRY;
+    const userCash = state.userProfile ? state.userProfile.balanceTRY : STARTING_BALANCE_TRY;
     const remaining = userCash - totalCost;
 
-    dom.basketCalcTotalCost.textContent = `$${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    dom.basketAvailableCash.textContent = `$${userCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    dom.basketRemainingCash.textContent = `$${remaining.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (isTryAsset(currentModalAsset?.type)) {
+      dom.basketCalcTotalCost.textContent = fmtTRY(totalCost);
+    } else {
+      // ABD hissesi / kripto: dolar tutarı ve hesaptan düşecek TL karşılığı birlikte gösterilir
+      const totalUSD = shares * price;
+      dom.basketCalcTotalCost.textContent = `$${totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (≈ ${fmtTRY(totalCost)})`;
+    }
+    dom.basketAvailableCash.textContent = fmtTRY(userCash);
+    dom.basketRemainingCash.textContent = fmtTRY(remaining);
 
     if (remaining < 0) {
       dom.basketRemainingCash.style.color = '#ef4444';
-      dom.basketErrorMsg.textContent = `Yetersiz sanal bakiye! Bu alım için $${Math.abs(remaining).toFixed(2)} daha bakiyeye ihtiyacınız var.`;
+      dom.basketErrorMsg.textContent = `Yetersiz sanal bakiye! Bu alım için ${fmtTRY(Math.abs(remaining))} daha bakiyeye ihtiyacınız var.`;
       dom.basketErrorMsg.style.display = 'block';
       dom.btnConfirmAddToBasket.disabled = true;
       dom.btnConfirmAddToBasket.style.opacity = '0.5';
@@ -705,9 +825,9 @@
       return;
     }
 
-    const priceUSD = nativeToUsd(price, currentModalAsset.type);
-    const totalCost = shares * priceUSD;
-    if (totalCost > state.userProfile.balanceUSD) {
+    const priceTRY = nativeToTry(price, currentModalAsset.type);
+    const totalCost = shares * priceTRY;
+    if (totalCost > state.userProfile.balanceTRY) {
       dom.basketErrorMsg.textContent = 'Yetersiz bakiye.';
       dom.basketErrorMsg.style.display = 'block';
       return;
@@ -723,11 +843,13 @@
       if (existingIdx >= 0) {
         const existing = portfolio[existingIdx];
         const newShares = existing.shares + shares;
-        const newAvgCost = ((existing.shares * existing.avgCostUSD) + (shares * priceUSD)) / newShares;
+        const newAvgCost = ((existing.shares * existing.avgCostTRY) + (shares * priceTRY)) / newShares;
+        const newAvgCostNative = ((existing.shares * avgCostNativeOf(existing)) + (shares * price)) / newShares;
         portfolio[existingIdx] = {
           ...existing,
           shares: Number(newShares.toFixed(4)),
-          avgCostUSD: Number(newAvgCost.toFixed(2)),
+          avgCostTRY: Number(newAvgCost.toFixed(6)),
+          avgCostNative: Number(newAvgCostNative.toFixed(8)),
           lastUpdated: new Date().toISOString()
         };
       } else {
@@ -736,18 +858,19 @@
           name: currentModalAsset.name,
           type: currentModalAsset.type || 'stock',
           shares: Number(shares.toFixed(4)),
-          avgCostUSD: Number(priceUSD.toFixed(2)),
+          avgCostTRY: Number(priceTRY.toFixed(6)),
+          avgCostNative: Number(price.toFixed(8)),
           addedAt: new Date().toISOString()
         });
       }
 
-      const newBalance = Number((state.userProfile.balanceUSD - totalCost).toFixed(2));
+      const newBalance = Number((state.userProfile.balanceTRY - totalCost).toFixed(2));
       state.userProfile.portfolio = portfolio;
-      state.userProfile.balanceUSD = newBalance;
+      state.userProfile.balanceTRY = newBalance;
 
       await window.fb.updateUserDoc(state.currentUser.uid, {
         portfolio,
-        balanceUSD: newBalance
+        balanceTRY: newBalance
       });
 
       closeModal('modalAddToBasket');
@@ -777,7 +900,7 @@
     dom.sellModalAssetName.textContent = item.name;
     dom.sellModalCurrentShares.textContent = item.shares;
     dom.sellModalMarketPrice.textContent = `${currencySymbolFor(item.type)}${currentPrice.toFixed(2)}`;
-    dom.sellModalAvgCostDisplay.textContent = `$${item.avgCostUSD.toFixed(2)}`;
+    dom.sellModalAvgCostDisplay.textContent = `${currencySymbolFor(item.type)}${avgCostNativeOf(item).toFixed(2)}`;
 
     dom.sellInputShares.value = item.shares.toString();
     dom.sellInputShares.max = item.shares.toString();
@@ -791,16 +914,16 @@
     if (!currentSellItem) return;
     const sharesToSell = parseFloat(dom.sellInputShares.value) || 0;
     const currentPrice = getCurrentAssetPrice(currentSellItem.symbol);
-    const currentPriceUSD = nativeToUsd(currentPrice, currentSellItem.type);
-    const returnUSD = sharesToSell * currentPriceUSD;
-    const costBasis = sharesToSell * currentSellItem.avgCostUSD;
-    const profitLoss = returnUSD - costBasis;
+    const currentPriceTRY = nativeToTry(currentPrice, currentSellItem.type);
+    const returnTRY = sharesToSell * currentPriceTRY;
+    const costBasis = sharesToSell * currentSellItem.avgCostTRY;
+    const profitLoss = returnTRY - costBasis;
     const profitPct = costBasis > 0 ? (profitLoss / costBasis) * 100 : 0;
 
-    dom.sellCalcReturnUSD.textContent = `$${returnUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    dom.sellCalcReturnTRY.textContent = `${fmtTRY(returnTRY)}`;
     
     const sign = profitLoss >= 0 ? '+' : '';
-    dom.sellCalcProfitLossDisplay.textContent = `${sign}$${profitLoss.toFixed(2)} (${sign}${profitPct.toFixed(2)}%)`;
+    dom.sellCalcProfitLossDisplay.textContent = `${sign}${fmtTRY(profitLoss)} (${sign}${profitPct.toFixed(2)}%)`;
     dom.sellCalcProfitLossDisplay.style.color = profitLoss >= 0 ? '#10b981' : '#ef4444';
 
     if (sharesToSell <= 0 || sharesToSell > currentSellItem.shares) {
@@ -829,8 +952,8 @@
 
     try {
       const currentPrice = getCurrentAssetPrice(currentSellItem.symbol);
-      const currentPriceUSD = nativeToUsd(currentPrice, currentSellItem.type);
-      const returnUSD = Number((sharesToSell * currentPriceUSD).toFixed(2));
+      const currentPriceTRY = nativeToTry(currentPrice, currentSellItem.type);
+      const returnTRY = Number((sharesToSell * currentPriceTRY).toFixed(2));
       let portfolio = [...state.userProfile.portfolio];
 
       if (sharesToSell >= currentSellItem.shares) {
@@ -846,24 +969,110 @@
         }
       }
 
-      const newBalance = Number((state.userProfile.balanceUSD + returnUSD).toFixed(2));
+      const newBalance = Number((state.userProfile.balanceTRY + returnTRY).toFixed(2));
       state.userProfile.portfolio = portfolio;
-      state.userProfile.balanceUSD = newBalance;
+      state.userProfile.balanceTRY = newBalance;
 
       await window.fb.updateUserDoc(state.currentUser.uid, {
         portfolio,
-        balanceUSD: newBalance
+        balanceTRY: newBalance
       });
 
       closeModal('modalSellFromBasket');
       renderPortfolioUI();
-      alert(`✅ ${sharesToSell} adet ${currentSellItem.symbol} satıldı. $${returnUSD} nakit bakiyenize eklendi!`);
+      alert(`✅ ${sharesToSell} adet ${currentSellItem.symbol} satıldı. ${fmtTRY(returnTRY)} nakit bakiyenize eklendi!`);
     } catch (err) {
       dom.sellErrorMsg.textContent = `Hata: ${err.message}`;
       dom.sellErrorMsg.style.display = 'block';
     } finally {
       dom.btnConfirmSell.disabled = false;
       dom.btnConfirmSell.textContent = '💰 Satışı Onayla & Nakde Çevir';
+    }
+  }
+
+  // --- 💱 Forex Sepeti (Kaldıraçlı Simülasyon) ---
+  async function openForexPosition() {
+    if (!state.currentUser || !state.userProfile) {
+      alert('Forex pozisyonu açmak için giriş yapmalısınız.');
+      return;
+    }
+
+    const pair = dom.forexPairSelect.value;
+    const direction = dom.forexDirectionSelect.value;
+    const leverage = Number(dom.forexLeverageSelect.value);
+    const marginTRY = Number(dom.forexMarginInput.value);
+    const balanceTRY = state.userProfile.balanceTRY || 0;
+
+    if (!marginTRY || marginTRY < 100) {
+      alert('Lütfen en az ₺100 marj girin.');
+      return;
+    }
+    if (marginTRY > balanceTRY) {
+      alert('Yetersiz sanal bakiye.');
+      return;
+    }
+
+    dom.btnOpenForexPosition.disabled = true;
+    dom.btnOpenForexPosition.textContent = 'Açılıyor...';
+    try {
+      const entryRate = await fetchFxPairRate(pair);
+      delete state.fxPairRates[pair]; // Bir sonraki taze çekim için önbelleği temizle
+
+      const newItem = {
+        id: `fx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        symbol: pair,
+        type: 'forex',
+        direction,
+        leverage,
+        marginTRY,
+        entryRate,
+        openedAt: new Date().toISOString()
+      };
+
+      const portfolio = [...(state.userProfile.portfolio || []), newItem];
+      const newBalance = Number((balanceTRY - marginTRY).toFixed(2));
+
+      await window.fb.updateUserDoc(state.currentUser.uid, { portfolio, balanceTRY: newBalance });
+      state.userProfile.portfolio = portfolio;
+      state.userProfile.balanceTRY = newBalance;
+
+      renderPortfolioUI();
+      alert(`✅ ${FOREX_PAIRS[pair].label} paritesinde ${leverage}x kaldıraçlı ${direction === 'short' ? 'Sat' : 'Al'} pozisyonu açıldı. Giriş kuru: ${entryRate.toFixed(4)}`);
+    } catch (err) {
+      alert(`Pozisyon açılamadı: ${err.message}`);
+    } finally {
+      dom.btnOpenForexPosition.disabled = false;
+      dom.btnOpenForexPosition.textContent = 'Pozisyon Aç';
+    }
+  }
+
+  async function closeForexPosition(id) {
+    if (!state.currentUser || !state.userProfile) return;
+    const portfolio = state.userProfile.portfolio || [];
+    const idx = portfolio.findIndex(p => p.id === id);
+    if (idx < 0) return;
+
+    const item = portfolio[idx];
+    if (!confirm(`${FOREX_PAIRS[item.symbol]?.label || item.symbol} pozisyonunu kapatmak istediğinize emin misiniz?`)) return;
+
+    try {
+      delete state.fxPairRates[item.symbol]; // Kapanışta taze kur al
+      const currentRate = await fetchFxPairRate(item.symbol);
+      const pnlTRY = calcForexPnlTRY(item, currentRate);
+      const returnTRY = Math.max(0, item.marginTRY + pnlTRY);
+
+      const newPortfolio = portfolio.filter((_, i) => i !== idx);
+      const newBalance = Number((state.userProfile.balanceTRY + returnTRY).toFixed(2));
+
+      await window.fb.updateUserDoc(state.currentUser.uid, { portfolio: newPortfolio, balanceTRY: newBalance });
+      state.userProfile.portfolio = newPortfolio;
+      state.userProfile.balanceTRY = newBalance;
+
+      renderPortfolioUI();
+      const sign = pnlTRY >= 0 ? '+' : '';
+      alert(`✅ Pozisyon kapatıldı. Sonuç: ${sign}${fmtTRY(pnlTRY)}. ${fmtTRY(returnTRY)} nakit bakiyenize eklendi.`);
+    } catch (err) {
+      alert(`Pozisyon kapatılamadı: ${err.message}`);
     }
   }
 
@@ -883,26 +1092,81 @@
     if (dom.autoTradingCheckbox) {
       dom.autoTradingCheckbox.checked = Boolean(state.userProfile.autoTradingEnabled);
     }
+    if (dom.autoTradingCryptoCheckbox) {
+      dom.autoTradingCryptoCheckbox.checked = Boolean(state.userProfile.autoTradingCryptoEnabled);
+    }
+    if (dom.autoTradingForexCheckbox) {
+      dom.autoTradingForexCheckbox.checked = Boolean(state.userProfile.autoTradingForexEnabled);
+    }
 
-    const profile = state.userProfile || { balanceUSD: 10000, portfolio: [] };
-    const cashUSD = profile.balanceUSD || 0;
+    const profile = state.userProfile || { balanceTRY: STARTING_BALANCE_TRY, portfolio: [] };
+    const cashTRY = profile.balanceTRY || 0;
     const portfolio = profile.portfolio || [];
 
-    let totalAssetValueUSD = 0;
-    let totalCostBasisUSD = 0;
+    let totalAssetValueTRY = 0;
+    let totalCostBasisTRY = 0;
+
+    const forexItemsList = portfolio.filter(p => p.type === 'forex');
+    const uniqueForexPairs = [...new Set(forexItemsList.map(p => p.symbol))];
+    const forexRateEntries = await Promise.all(uniqueForexPairs.map(async pair => [pair, await fetchFxPairRate(pair)]));
+    const forexRates = Object.fromEntries(forexRateEntries);
+
+    const liveHoldingItems = portfolio.filter(p => p.type === 'bist' || p.type === 'crypto');
+    const uniqueHoldingKeys = [...new Set(liveHoldingItems.map(p => `${p.type}:${p.symbol}`))];
+    const livePriceEntries = await Promise.all(uniqueHoldingKeys.map(async key => {
+      const [type, symbol] = key.split(':');
+      return [key, await fetchLivePrice(symbol, type)];
+    }));
+    const livePrices = Object.fromEntries(livePriceEntries);
+
+    function buildForexRow(item) {
+      const currentRate = forexRates[item.symbol] || item.entryRate;
+      const pnlTRY = calcForexPnlTRY(item, currentRate);
+      const currentValueTRY = Math.max(0, item.marginTRY + pnlTRY);
+      const pnlPct = item.marginTRY > 0 ? (pnlTRY / item.marginTRY) * 100 : 0;
+      const isProfitable = pnlTRY >= 0;
+      const sign = isProfitable ? '+' : '';
+      const pairInfo = FOREX_PAIRS[item.symbol] || { label: item.symbol };
+
+      totalAssetValueTRY += currentValueTRY;
+      totalCostBasisTRY += item.marginTRY;
+
+      return `
+        <tr>
+          <td style="font-weight: 700; color: #fff;">
+            ${pairInfo.label}
+            ${item.managedByBot ? '<span title="AI Sepet Botu tarafından yönetiliyor" style="font-size: 0.7rem; background: rgba(6,182,212,0.15); color: var(--color-primary); padding: 2px 6px; border-radius: 10px; margin-left: 4px;">🤖 Bot</span>' : ''}
+          </td>
+          <td>${item.direction === 'short' ? '📉 Sat' : '📈 Al'}</td>
+          <td style="font-weight: 600;">${item.leverage}x</td>
+          <td>${item.entryRate.toFixed(4)}</td>
+          <td style="font-weight: 600;">${currentRate.toFixed(4)}</td>
+          <td>${fmtTRY(item.marginTRY)}</td>
+          <td>
+            <span class="change-pill ${isProfitable ? 'bullish' : 'bearish'}">
+              ${sign}${fmtTRY(pnlTRY)} (${sign}${pnlPct.toFixed(2)}%)
+            </span>
+          </td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn-secondary" data-forex-action="close" data-forex-id="${item.id}" style="padding: 5px 10px; font-size: 0.75rem; color: #ef4444;">✕ Kapat</button>
+          </td>
+        </tr>
+      `;
+    }
 
     function buildRow(item) {
-      const curPrice = getCurrentAssetPrice(item.symbol);
-      const curPriceUSD = nativeToUsd(curPrice, item.type);
-      const marketVal = item.shares * curPriceUSD;
-      const costVal = item.shares * item.avgCostUSD;
+      const livePrice = livePrices[`${item.type}:${item.symbol}`];
+      const curPrice = (typeof livePrice === 'number') ? livePrice : getCurrentAssetPrice(item.symbol);
+      const curPriceTRY = nativeToTry(curPrice, item.type);
+      const marketVal = item.shares * curPriceTRY;
+      const costVal = item.shares * item.avgCostTRY;
       const profitVal = marketVal - costVal;
       const profitPct = costVal > 0 ? (profitVal / costVal) * 100 : 0;
       const isProfitable = profitVal >= 0;
       const sign = isProfitable ? '+' : '';
 
-      totalAssetValueUSD += marketVal;
-      totalCostBasisUSD += costVal;
+      totalAssetValueTRY += marketVal;
+      totalCostBasisTRY += costVal;
 
       return `
         <tr>
@@ -914,12 +1178,12 @@
             <div style="font-size: 0.78rem; color: var(--text-muted);">${item.name}</div>
           </td>
           <td style="font-weight: 600;">${item.shares}</td>
-          <td>$${item.avgCostUSD.toFixed(2)}</td>
+          <td>${currencySymbolFor(item.type)}${avgCostNativeOf(item).toFixed(2)}</td>
           <td style="font-weight: 600;">${currencySymbolFor(item.type)}${curPrice.toFixed(2)}</td>
-          <td style="font-weight: 700; color: #fff;">$${marketVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="font-weight: 700; color: #fff;">${fmtTRY(marketVal)}</td>
           <td>
             <span class="change-pill ${isProfitable ? 'bullish' : 'bearish'}">
-              ${sign}$${profitVal.toFixed(2)} (${sign}${profitPct.toFixed(2)}%)
+              ${sign}${fmtTRY(profitVal)} (${sign}${profitPct.toFixed(2)}%)
             </span>
           </td>
           <td style="text-align: right; white-space: nowrap;">
@@ -934,35 +1198,38 @@
     const stockItems = portfolio.filter(p => p.type === 'bist' || p.type === 'stock');
     const cryptoItems = portfolio.filter(p => p.type === 'crypto');
     const fundItems = portfolio.filter(p => p.type === 'fund');
+    const forexItems = forexItemsList;
 
     const stockRows = stockItems.map(buildRow);
     const cryptoRows = cryptoItems.map(buildRow);
     const fundRows = fundItems.map(buildRow);
+    const forexRows = forexItems.map(buildForexRow);
 
-    const totalPortfolioUSD = cashUSD + totalAssetValueUSD;
-    const totalProfitUSD = totalPortfolioUSD - 10000.0;
-    const totalProfitPct = (totalProfitUSD / 10000.0) * 100;
-    const isOverallProfit = totalProfitUSD >= 0;
+    const totalPortfolioTRY = cashTRY + totalAssetValueTRY;
+    const totalProfitTRY = totalPortfolioTRY - STARTING_BALANCE_TRY;
+    const totalProfitPct = (totalProfitTRY / STARTING_BALANCE_TRY) * 100;
+    const isOverallProfit = totalProfitTRY >= 0;
     const sign = isOverallProfit ? '+' : '';
 
-    dom.portfolioTotalValueUSD.textContent = `$${totalPortfolioUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    dom.portfolioTotalValueTRY.textContent = `${fmtTRY(totalPortfolioTRY)}`;
     
-    // Canlı kur ile yerel para çevrimi
+    // Canlı kurla karşılık: Türkiye'de dolar karşılığı, diğer bölgelerde o bölgenin para birimi gösterilir
     const currentCountry = state.currentRegion || 'TR';
-    const currencyInfo = COUNTRY_CURRENCIES[currentCountry] || COUNTRY_CURRENCIES['TR'];
-    const rate = await fetchLiveExchangeRate(currencyInfo.code);
-    const localVal = totalPortfolioUSD * rate;
+    const currencyInfo = (currentCountry === 'TR' ? null : COUNTRY_CURRENCIES[currentCountry]) || COUNTRY_CURRENCIES['US'];
+    const usdTry = await fetchLiveExchangeRate('TRY');
+    const rate = await fetchLiveExchangeRate(currencyInfo.code); // 1 USD = rate birim
+    const localVal = (totalPortfolioTRY / usdTry) * rate;
     dom.portfolioTotalValueLocal.textContent = `≈ ${localVal.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ${currencyInfo.symbol} (${currencyInfo.code})`;
 
-    dom.portfolioCashUSD.textContent = `$${cashUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    dom.portfolioProfitLossUSD.textContent = `${sign}$${totalProfitUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    dom.portfolioProfitLossUSD.style.color = isOverallProfit ? '#10b981' : '#ef4444';
+    dom.portfolioCashTRY.textContent = `${fmtTRY(cashTRY)}`;
+    dom.portfolioProfitLossTRY.textContent = `${sign}${fmtTRY(totalProfitTRY)}`;
+    dom.portfolioProfitLossTRY.style.color = isOverallProfit ? '#10b981' : '#ef4444';
     dom.portfolioProfitLossPct.textContent = `${sign}${totalProfitPct.toFixed(2)}%`;
     dom.portfolioProfitLossPct.style.color = isOverallProfit ? '#10b981' : '#ef4444';
     dom.portfolioAssetCount.textContent = `${portfolio.length} Varlık`;
 
-    checkMillionaireMilestone(totalPortfolioUSD);
-    syncLeaderboardEntry(totalPortfolioUSD, totalProfitPct);
+    checkMillionaireMilestone(totalPortfolioTRY);
+    syncLeaderboardEntry(totalPortfolioTRY, totalProfitPct);
 
     if (portfolio.length === 0) {
       dom.portfolioEmptyState.style.display = 'block';
@@ -974,14 +1241,17 @@
       dom.portfolioStockCount.textContent = stockItems.length;
       dom.portfolioCryptoCount.textContent = cryptoItems.length;
       dom.portfolioFundCount.textContent = fundItems.length;
+      dom.portfolioForexCount.textContent = forexItems.length;
 
       dom.portfolioGroupStock.style.display = stockItems.length ? 'block' : 'none';
       dom.portfolioGroupCrypto.style.display = cryptoItems.length ? 'block' : 'none';
       dom.portfolioGroupFund.style.display = fundItems.length ? 'block' : 'none';
+      dom.portfolioGroupForex.style.display = forexItems.length ? 'block' : 'none';
 
       dom.portfolioStockTableBody.innerHTML = stockRows.join('');
       dom.portfolioCryptoTableBody.innerHTML = cryptoRows.join('');
       dom.portfolioFundTableBody.innerHTML = fundRows.join('');
+      dom.portfolioForexTableBody.innerHTML = forexRows.join('');
     }
   }
 
@@ -991,15 +1261,20 @@
 
     const profile = state.userProfile;
     const portfolio = profile.portfolio || [];
-    let assetValueUSD = 0;
+    let assetValueTRY = 0;
     portfolio.forEach(item => {
+      if (item.type === 'forex') {
+        const currentRate = (state.fxPairRates && state.fxPairRates[item.symbol]) || item.entryRate;
+        assetValueTRY += Math.max(0, item.marginTRY + calcForexPnlTRY(item, currentRate));
+        return;
+      }
       const curPrice = getCurrentAssetPrice(item.symbol);
-      assetValueUSD += item.shares * nativeToUsd(curPrice, item.type);
+      assetValueTRY += item.shares * nativeToTry(curPrice, item.type);
     });
-    const totalUSD = (profile.balanceUSD || 0) + assetValueUSD;
-    const profitUSD = totalUSD - 10000.0;
-    const profitPct = (profitUSD / 10000.0) * 100;
-    const isProfit = profitUSD >= 0;
+    const totalTRY = (profile.balanceTRY || 0) + assetValueTRY;
+    const profitTRY = totalTRY - STARTING_BALANCE_TRY;
+    const profitPct = (profitTRY / STARTING_BALANCE_TRY) * 100;
+    const isProfit = profitTRY >= 0;
 
     const canvas = dom.shareCardCanvas;
     const ctx = canvas.getContext('2d');
@@ -1029,13 +1304,13 @@
     // Toplam değer
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 90px monospace';
-    ctx.fillText(`$${totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 60, 350);
+    ctx.fillText(`${fmtTRY(totalTRY)}`, 60, 350);
 
     // Kâr/Zarar rozeti
     const sign = isProfit ? '+' : '';
     ctx.fillStyle = isProfit ? '#10b981' : '#ef4444';
     ctx.font = 'bold 52px monospace';
-    ctx.fillText(`${sign}$${profitUSD.toFixed(2)} (${sign}${profitPct.toFixed(2)}%)`, 60, 430);
+    ctx.fillText(`${sign}${fmtTRY(profitTRY)} (${sign}${profitPct.toFixed(2)}%)`, 60, 430);
 
     // Ayraç
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -1089,17 +1364,17 @@
       }
       const u = snap.data();
       const portfolio = Array.isArray(u.portfolio) ? u.portfolio : [];
-      const cash = u.balanceUSD ?? 10000;
+      const cash = u.balanceTRY ?? STARTING_BALANCE_TRY;
 
       dom.adminPortfolioUserEmail.textContent = u.email || uid;
-      dom.adminPortfolioUserCash.textContent = `$${cash.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+      dom.adminPortfolioUserCash.textContent = fmtTRY(cash);
 
       let totalVal = cash;
       const rows = portfolio.map(item => {
         const curPrice = getCurrentAssetPrice(item.symbol);
-        const curPriceUSD = nativeToUsd(curPrice, item.type);
-        const mVal = item.shares * curPriceUSD;
-        const cVal = item.shares * item.avgCostUSD;
+        const curPriceTRY = nativeToTry(curPrice, item.type);
+        const mVal = item.shares * curPriceTRY;
+        const cVal = item.shares * item.avgCostTRY;
         const pVal = mVal - cVal;
         const pPct = cVal > 0 ? (pVal / cVal) * 100 : 0;
         const isProf = pVal >= 0;
@@ -1110,15 +1385,15 @@
           <tr>
             <td><strong>${item.symbol}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${item.name})</span></td>
             <td>${item.shares}</td>
-            <td>$${item.avgCostUSD.toFixed(2)}</td>
+            <td>${currencySymbolFor(item.type)}${avgCostNativeOf(item).toFixed(2)}</td>
             <td>${currencySymbolFor(item.type)}${curPrice.toFixed(2)}</td>
-            <td style="font-weight:600;">$${mVal.toFixed(2)}</td>
-            <td style="color: ${isProf ? '#10b981' : '#ef4444'}; font-weight:600;">${sign}$${pVal.toFixed(2)} (${sign}${pPct.toFixed(1)}%)</td>
+            <td style="font-weight:600;">${fmtTRY(mVal)}</td>
+            <td style="color: ${isProf ? '#10b981' : '#ef4444'}; font-weight:600;">${sign}${fmtTRY(pVal)} (${sign}${pPct.toFixed(1)}%)</td>
           </tr>
         `;
       });
 
-      dom.adminPortfolioUserTotal.textContent = `$${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+      dom.adminPortfolioUserTotal.textContent = fmtTRY(totalVal);
 
       if (portfolio.length === 0) {
         dom.adminPortfolioEmptyState.style.display = 'block';
@@ -1216,10 +1491,10 @@
     loadIncomingGifts();
   }
 
-  // --- 🏆 $1.000.000 Hedefi: Otomatik Rozet & Statü ---
+  // --- 🏆 ₺25.000.000 Hedefi: Otomatik Rozet & Statü ---
   let millionaireCheckInFlight = false;
 
-  async function checkMillionaireMilestone(totalPortfolioUSD) {
+  async function checkMillionaireMilestone(totalPortfolioTRY) {
     if (!dom.millionaireBanner || !state.userProfile) return;
 
     const alreadyOwned = (state.userProfile.ownedItems || []).includes(MILLIONAIRE_BADGE_ID);
@@ -1229,7 +1504,7 @@
       return;
     }
 
-    if (totalPortfolioUSD < MILLIONAIRE_THRESHOLD_USD || millionaireCheckInFlight) {
+    if (totalPortfolioTRY < MILLIONAIRE_THRESHOLD_TRY || millionaireCheckInFlight) {
       dom.millionaireBanner.style.display = 'none';
       return;
     }
@@ -1240,7 +1515,7 @@
       await window.fb.updateUserDoc(state.currentUser.uid, { ownedItems: newOwned });
       state.userProfile.ownedItems = newOwned;
       dom.millionaireBanner.style.display = 'flex';
-      alert('🏆 Tebrikler! Sanal portföyünü $1.000.000\'a çıkardın ve "Efsanevi Yatırımcı" rozetini kazandın!');
+      alert('🏆 Tebrikler! Sanal portföyünü ₺25.000.000\'a çıkardın ve "Efsanevi Yatırımcı" rozetini kazandın!');
     } catch (err) {
       console.warn('Efsanevi Yatırımcı rozeti verilemedi:', err);
     } finally {
@@ -1389,13 +1664,13 @@
   }
 
   // --- 🏆 Liderlik Tablosu ---
-  async function syncLeaderboardEntry(totalUSD, profitPct) {
+  async function syncLeaderboardEntry(totalTRY, profitPct) {
     if (!state.currentUser || !state.userProfile) return;
     try {
       if (state.userProfile.showOnLeaderboard) {
         await window.fb.setLeaderboardEntry(state.currentUser.uid, {
           displayName: state.userProfile.displayName || state.userProfile.email.split('@')[0],
-          totalUSD,
+          totalTRY,
           profitPct,
           updatedAt: window.fb.serverTimestamp()
         });
@@ -1432,6 +1707,34 @@
     }
   }
 
+  async function toggleAutoTradingCrypto(checked) {
+    if (!state.currentUser || !state.userProfile) return;
+    try {
+      await window.fb.updateUserDoc(state.currentUser.uid, { autoTradingCryptoEnabled: checked });
+      state.userProfile.autoTradingCryptoEnabled = checked;
+      if (checked) {
+        alert('🪙 Otomatik Kripto Sepet Botu açıldı! En yakın taramada (15 dakika içinde) piyasayı kontrol edip uygun fırsat bulursa sepetine otomatik ekleyecek.');
+      }
+    } catch (err) {
+      alert(`Ayar kaydedilemedi: ${err.message}`);
+      dom.autoTradingCryptoCheckbox.checked = !checked;
+    }
+  }
+
+  async function toggleAutoTradingForex(checked) {
+    if (!state.currentUser || !state.userProfile) return;
+    try {
+      await window.fb.updateUserDoc(state.currentUser.uid, { autoTradingForexEnabled: checked });
+      state.userProfile.autoTradingForexEnabled = checked;
+      if (checked) {
+        alert('💱 Otomatik Forex Sepet Botu açıldı! En yakın taramada (15 dakika içinde) pariteleri kontrol edip uygun fırsat bulursa sanal bakiyenle pozisyon açacak.');
+      }
+    } catch (err) {
+      alert(`Ayar kaydedilemedi: ${err.message}`);
+      dom.autoTradingForexCheckbox.checked = !checked;
+    }
+  }
+
   async function renderLeaderboard() {
     if (!dom.leaderboardTableBody) return;
 
@@ -1443,8 +1746,9 @@
     }
 
     try {
-      const entries = await window.fb.getLeaderboard();
-      entries.sort((a, b) => (b.totalUSD || 0) - (a.totalUSD || 0));
+      // TL geçişinden önceki (totalUSD'li) kayıtlar, sahibi tekrar giriş yapıp güncelleyene kadar gizlenir.
+      const entries = (await window.fb.getLeaderboard()).filter(e => typeof e.totalTRY === 'number');
+      entries.sort((a, b) => b.totalTRY - a.totalTRY);
 
       if (entries.length === 0) {
         dom.leaderboardEmptyState.style.display = 'block';
@@ -1462,7 +1766,7 @@
           <tr style="${isMe ? 'background: rgba(6,182,212,0.08);' : ''}">
             <td style="font-weight: 700;">${rankIcons[idx] || `#${idx + 1}`}</td>
             <td>${entry.displayName || 'Yatırımcı'}${isMe ? ' <span style="color: var(--color-primary); font-size: 0.75rem;">(Sen)</span>' : ''}</td>
-            <td style="font-weight: 700;">$${(entry.totalUSD || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="font-weight: 700;">${fmtTRY((entry.totalTRY || 0))}</td>
             <td style="color: ${isProfit ? '#10b981' : '#ef4444'}; font-weight: 600;">${sign}${(entry.profitPct || 0).toFixed(2)}%</td>
           </tr>
         `;
@@ -1572,7 +1876,26 @@
   }
 
   // --- Varlık Detayı Yükleme (Chart, Metrikler, Profil, Haberler) ---
+  // Sabit listede olmayan BIST hissesinin gerçek fiyatını/göstergelerini worker'dan çekip listeye ekler,
+  // böylece sepet, satış ve tarayıcı ekranları da bu hisseyi tanır.
+  async function ensureBistAsset(symbol) {
+    const existing = ASSET_UNIVERSE.find(a => a.symbol === symbol);
+    if (existing) return existing;
+    try {
+      const res = await fetch(`${state.workerUrl}/api/bist/quote?symbol=${encodeURIComponent(symbol)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (typeof data.basePrice !== 'number') return null;
+      ASSET_UNIVERSE.push(data);
+      return data;
+    } catch (e) {
+      console.warn('BIST fiyat çekme uyarısı:', e);
+      return null;
+    }
+  }
+
   async function loadAssetDetail(symbol, type = 'bist') {
+    if (type === 'bist') await ensureBistAsset(symbol);
     let asset = ASSET_UNIVERSE.find(a => a.symbol === symbol) || {
       symbol,
       name: symbol,
@@ -1946,8 +2269,13 @@
   }
 
   // --- Arama Çubuğu & Otomatik Tamamlama ---
+  // Önce yerel listede aranır; 2+ karakterde tüm Borsa İstanbul worker üzerinden (Yahoo) ayrıca taranır.
+  let bistSearchTimer = null;
+  let bistSearchSeq = 0;
+
   function handleSearchInput(query) {
     const cleanQuery = query.trim().toLowerCase();
+    clearTimeout(bistSearchTimer);
     if (!cleanQuery) {
       dom.searchDropdown.classList.remove('open');
       dom.searchDropdown.innerHTML = '';
@@ -1957,15 +2285,36 @@
 
     dom.btnSearchClear.style.display = 'block';
 
-    const results = ASSET_UNIVERSE.filter(a => 
-      a.symbol.toLowerCase().includes(cleanQuery) || 
+    const results = ASSET_UNIVERSE.filter(a =>
+      a.symbol.toLowerCase().includes(cleanQuery) ||
       a.name.toLowerCase().includes(cleanQuery)
     );
 
+    const searchRemote = cleanQuery.length >= 2;
+    renderSearchResults(query, results, searchRemote);
+    if (!searchRemote) return;
+
+    const seq = ++bistSearchSeq;
+    bistSearchTimer = setTimeout(async () => {
+      let remote = [];
+      try {
+        const res = await fetch(`${state.workerUrl}/api/bist/search?q=${encodeURIComponent(query.trim())}`);
+        if (res.ok) remote = (await res.json()).results || [];
+      } catch (e) {
+        console.warn('BIST arama uyarısı:', e);
+      }
+      if (seq !== bistSearchSeq) return; // kullanıcı bu arada yazmaya devam etti
+      const known = new Set(results.map(r => r.symbol));
+      const extra = remote.filter(r => !known.has(r.symbol));
+      renderSearchResults(query, [...results, ...extra], false);
+    }, 300);
+  }
+
+  function renderSearchResults(query, results, stillSearching) {
     if (results.length === 0) {
       dom.searchDropdown.innerHTML = `
         <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.88rem;">
-          "${query}" ile eşleşen hisse veya kripto bulunamadı.
+          ${stillSearching ? 'Borsa İstanbul\'da aranıyor...' : `"${escapeHtml(query)}" ile eşleşen hisse veya kripto bulunamadı.`}
         </div>
       `;
     } else {
@@ -1977,15 +2326,17 @@
             </span>
             <div>
               <div class="search-item-symbol">${r.symbol}</div>
-              <div class="search-item-name">${r.name}</div>
+              <div class="search-item-name">${escapeHtml(r.name)}</div>
             </div>
           </div>
+          ${typeof r.basePrice === 'number' ? `
           <div style="text-align: right; font-family: var(--font-mono); font-size: 0.9rem;">
             <div>${currencySymbolFor(r.type)}${r.basePrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div style="color: ${r.change24h >= 0 ? '#10b981' : '#ef4444'}; font-size: 0.78rem;">
               ${r.change24h >= 0 ? '+' : ''}${r.change24h.toFixed(2)}%
             </div>
-          </div>
+          </div>` : `
+          <div style="text-align: right; font-size: 0.75rem; color: var(--text-muted);">Canlı fiyat için tıklayın</div>`}
         </div>
       `).join('');
     }
@@ -2441,6 +2792,14 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
     // Portföy Tablosu Aksiyonları (Event Delegation)
     if (dom.portfolioTableContainer) {
       dom.portfolioTableContainer.addEventListener('click', (e) => {
+        const forexBtn = e.target.closest('[data-forex-action]');
+        if (forexBtn) {
+          if (forexBtn.dataset.forexAction === 'close') {
+            closeForexPosition(forexBtn.dataset.forexId);
+          }
+          return;
+        }
+
         const btn = e.target.closest('[data-portfolio-action]');
         if (!btn) return;
         const action = btn.dataset.portfolioAction;
@@ -2457,6 +2816,11 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
           openSellFromBasketModal(symbol);
         }
       });
+    }
+
+    // 💱 Forex: Pozisyon Aç
+    if (dom.btnOpenForexPosition) {
+      dom.btnOpenForexPosition.addEventListener('click', openForexPosition);
     }
 
     // 🎁 Mağaza: Ürün Satın Alma (Event Delegation)
@@ -2521,9 +2885,15 @@ Kısa vadeli hareketlerde 20 periyotluk hareketli ortalama seviyesi dinamik bir 
       dom.leaderboardOptInCheckbox.addEventListener('change', (e) => toggleLeaderboardOptIn(e.target.checked));
     }
 
-    // 🤖 Otomatik AI Sepet Botu
+    // 🤖 Otomatik AI Sepet Botları
     if (dom.autoTradingCheckbox) {
       dom.autoTradingCheckbox.addEventListener('change', (e) => toggleAutoTrading(e.target.checked));
+    }
+    if (dom.autoTradingCryptoCheckbox) {
+      dom.autoTradingCryptoCheckbox.addEventListener('change', (e) => toggleAutoTradingCrypto(e.target.checked));
+    }
+    if (dom.autoTradingForexCheckbox) {
+      dom.autoTradingForexCheckbox.addEventListener('change', (e) => toggleAutoTradingForex(e.target.checked));
     }
 
     // Admin: Tablo İçi Aksiyonlar (Event Delegation)

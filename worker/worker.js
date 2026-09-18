@@ -52,6 +52,19 @@ export default {
         return await handleFxRate(request, ctx, url);
       }
 
+      // 3c. Sepet Görüntüleme İçin Canlı Fiyat (BIST: Yahoo Finance, Kripto: Kraken)
+      if (pathname === '/api/live-price') {
+        return await handleLivePrice(url);
+      }
+
+      // 3d. Tüm Borsa İstanbul hisselerinde arama ve anlık özet (Yahoo Finance, 1 saat / 60 sn cache)
+      if (pathname === '/api/bist/search') {
+        return await handleBistSearch(request, ctx, url);
+      }
+      if (pathname === '/api/bist/quote') {
+        return await handleBistQuote(request, ctx, url);
+      }
+
       // 4. AI Analiz Uç Noktası
       if (pathname === '/api/ai/analyze' && request.method === 'POST') {
         return await handleAIAnalysis(request, env);
@@ -205,10 +218,11 @@ async function handleCoinGecko(request, env, ctx, url) {
  * bu yüzden Worker üzerinden 1 saatlik önbellekle sunulur.
  */
 async function handleFxRate(request, ctx, url) {
+  const from = (url.searchParams.get('from') || 'USD').toUpperCase();
   const to = (url.searchParams.get('to') || 'TRY').toUpperCase();
 
-  if (to === 'USD') {
-    return jsonResponse({ from: 'USD', to: 'USD', rate: 1.0 });
+  if (to === from) {
+    return jsonResponse({ from, to, rate: 1.0 });
   }
 
   const cacheKey = new Request(url.toString(), request);
@@ -216,13 +230,13 @@ async function handleFxRate(request, ctx, url) {
   const cachedResponse = await cache.match(cacheKey);
   if (cachedResponse) return cachedResponse;
 
-  const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${encodeURIComponent(to)}`, {
+  const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
     headers: { 'Accept': 'application/json' }
   });
   const data = await res.json();
   const rate = data?.rates?.[to];
 
-  const response = new Response(JSON.stringify({ from: 'USD', to, rate: rate ?? null }), {
+  const response = new Response(JSON.stringify({ from, to, rate: rate ?? null }), {
     status: res.status,
     headers: {
       ...CORS_HEADERS,
@@ -236,6 +250,98 @@ async function handleFxRate(request, ctx, url) {
   }
 
   return response;
+}
+
+// Sepetteki BIST/kripto varlıkların güncel fiyatını, botun kullandığı aynı
+// kaynaklarla (Yahoo Finance / Kraken) döndürür — ASSET_UNIVERSE'deki statik
+// örnek fiyatlarla karışıp yanlış kâr/zarar göstermesin diye.
+async function cachedJson(request, ctx, url, maxAgeSec, producer) {
+  const cacheKey = new Request(url.toString(), request);
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+  const body = await producer();
+  const response = new Response(JSON.stringify(body), {
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${maxAgeSec}` }
+  });
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  return response;
+}
+
+// Uygulamadaki sabit listede olmayan BIST hisseleri için: Yahoo aramasında sadece İstanbul (IST) sonuçları
+async function handleBistSearch(request, ctx, url) {
+  const q = (url.searchParams.get('q') || '').trim();
+  if (q.length < 2) return jsonResponse({ results: [] });
+
+  return cachedJson(request, ctx, url, 3600, async () => {
+    const res = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=15&newsCount=0`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrendVestBot/1.0)' }
+    });
+    const data = await res.json().catch(() => ({}));
+    const results = (data.quotes || [])
+      .filter(item => item.exchange === 'IST' && item.quoteType === 'EQUITY' && /\.IS$/.test(item.symbol || ''))
+      .map(item => ({
+        symbol: item.symbol.replace(/\.IS$/, ''),
+        name: item.longname || item.shortname || item.symbol,
+        type: 'bist',
+        exchange: 'BIST'
+      }));
+    return { results };
+  });
+}
+
+// Tek bir BIST hissesinin canlı fiyatı, günlük değişimi ve tarayıcının kullandığı gösterge alanları
+async function handleBistQuote(request, ctx, url) {
+  const symbol = (url.searchParams.get('symbol') || '').toUpperCase().replace(/\.IS$/, '');
+  if (!/^[A-Z0-9]{2,8}$/.test(symbol)) return jsonResponse({ error: 'Geçersiz sembol' }, 400);
+
+  return cachedJson(request, ctx, url, 60, async () => {
+    const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.IS?interval=1d&range=3mo`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrendVestBot/1.0)' }
+    });
+    const data = await res.json().catch(() => ({}));
+    const result = data?.chart?.result?.[0];
+    const quote = result?.indicators?.quote?.[0] || {};
+    const closes = (quote.close || []).filter(c => typeof c === 'number');
+    const volumes = (quote.volume || []).filter(v => typeof v === 'number');
+    if (!result || closes.length < 2) return { symbol, error: 'Veri bulunamadı' };
+
+    const price = result.meta?.regularMarketPrice ?? closes[closes.length - 1];
+    const prevClose = closes[closes.length - 2];
+    const lastVolume = volumes[volumes.length - 1] || 0;
+    const avgVolume = volumes.length ? volumes.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, volumes.length) : 0;
+    return {
+      symbol,
+      name: result.meta?.longName || result.meta?.shortName || symbol,
+      type: 'bist',
+      exchange: 'BIST',
+      basePrice: price,
+      change24h: prevClose ? Math.round(((price - prevClose) / prevClose) * 10000) / 100 : 0,
+      volume: lastVolume,
+      rsi: calculateRSI(closes, 14),
+      sma20: Math.round(calculateSMA(closes, 20) * 100) / 100,
+      sma50: Math.round(calculateSMA(closes, Math.min(50, closes.length)) * 100) / 100,
+      volumeRatio: avgVolume ? Math.round((lastVolume / avgVolume) * 100) / 100 : 1
+    };
+  });
+}
+
+async function handleLivePrice(url) {
+  const symbol = (url.searchParams.get('symbol') || '').toUpperCase();
+  const type = (url.searchParams.get('type') || '').toLowerCase();
+  if (!symbol || !['bist', 'crypto'].includes(type)) {
+    return jsonResponse({ error: 'symbol ve type=bist|crypto parametreleri gerekli' }, 400);
+  }
+
+  let price = null;
+  if (type === 'bist') {
+    const candles = await fetchBistCandles(symbol);
+    price = candles ? candles.lastPrice : null;
+  } else {
+    price = await fetchCryptoSpotPrice(symbol);
+  }
+
+  return jsonResponse({ symbol, type, price });
 }
 
 /**
@@ -458,9 +564,17 @@ function jsonResponse(data, status = 200) {
  * ==========================================================================*/
 
 const BOT_WATCHLIST = ['THYAO', 'AKBNK', 'GARAN', 'EREGL', 'ASELS', 'KCHOL', 'ISCTR', 'TUPRS', 'SAHOL', 'BIMAS'];
+const BOT_CRYPTO_WATCHLIST = ['BTC', 'ETH', 'BNB', 'SOL', 'AVAX'];
+const KRAKEN_PAIR_MAP = { BTC: 'XBTUSD', ETH: 'ETHUSD', BNB: 'BNBUSD', SOL: 'SOLUSD', AVAX: 'AVAXUSD' };
 const BOT_TAKE_PROFIT_PCT = 3.0;
 const BOT_STOP_LOSS_PCT = 4.0;
-const BOT_DEFAULT_BUDGET_USD = 1000.0;
+const BOT_DEFAULT_BUDGET_TRY = 10000.0; // Sanal hesap TL'dir (başlangıç ₺250.000); her bot alımı en fazla ₺10.000
+const BOT_MAX_POSITIONS_PER_MARKET = 5; // Her bot (hisse/kripto/forex) sepetinde aynı anda en fazla 5 farklı varlık
+const ACCOUNT_CURRENCY_VERSION = 2; // Uygulamadaki TL geçiş sürümüyle aynı olmalı
+// Forex botu: uygulamadaki manuel Forex Sepeti ile aynı pariteler ve pozisyon yapısı.
+// Hedef/stop marj üzerinden (kaldıraç dahil) hesaplanır: 10x'te %0.3'lük kur hareketi = marjda %3.
+const BOT_FOREX_PAIRS = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDTRY', 'EURTRY'];
+const BOT_FOREX_LEVERAGE = 10;
 
 // --- Firestore Admin REST Erişimi (Servis Hesabı JWT İmzalama) ---
 let _cachedFirestoreToken = null;
@@ -628,25 +742,44 @@ function calculateSMA(closes, period) {
   return slice.reduce((a, b) => a + b, 0) / period;
 }
 
-async function fetchBistCandles(symbol, finnhubKey) {
-  const to = Math.floor(Date.now() / 1000);
-  const from = to - (60 * 86400); // son 60 gün
-  const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${finnhubKey}`;
+// Finnhub'ın ücretsiz planı BIST geçmiş mum verisine izin vermediği (403) için
+// Yahoo Finance'in herkese açık chart uç noktası kullanılıyor (anahtarsız, ücretsiz).
+async function fetchBistCandles(symbol) {
+  return fetchYahooCandles(`${symbol}.IS`, symbol);
+}
+
+async function fetchYahooCandles(yahooSymbol, symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=3mo`;
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrendVestBot/1.0)' } });
     const data = await res.json();
-    if (data.s !== 'ok' || !data.c || data.c.length < 20) return null;
-    return { closes: data.c, lastPrice: data.c[data.c.length - 1] };
+    const result = data?.chart?.result?.[0];
+    const rawCloses = result?.indicators?.quote?.[0]?.close;
+    if (!Array.isArray(rawCloses)) {
+      console.log(`[DEBUG] ${symbol} Yahoo hatası: HTTP ${res.status}, body=${JSON.stringify(data).slice(0, 200)}`);
+      return null;
+    }
+    const closes = rawCloses.filter(c => typeof c === 'number');
+    if (closes.length < 20) {
+      console.log(`[DEBUG] ${symbol} Yahoo yetersiz veri: ${closes.length} nokta`);
+      return null;
+    }
+    return { closes, lastPrice: closes[closes.length - 1] };
   } catch (e) {
+    console.log(`[DEBUG] ${symbol} Yahoo exception: ${e.message}`);
     return null;
   }
 }
 
-async function scanForBestBistCandidate(finnhubKey) {
-  let best = null;
+async function scanBistCandidates() {
+  const candidates = [];
+  const debugScores = [];
   for (const symbol of BOT_WATCHLIST) {
-    const candles = await fetchBistCandles(symbol, finnhubKey);
-    if (!candles) continue;
+    const candles = await fetchBistCandles(symbol);
+    if (!candles) {
+      debugScores.push(`${symbol}=veri yok`);
+      continue;
+    }
 
     const rsi = calculateRSI(candles.closes, 14);
     const sma20 = calculateSMA(candles.closes, 20);
@@ -660,11 +793,141 @@ async function scanForBestBistCandidate(finnhubKey) {
     if (price > sma20 && sma20 > sma50) score += 20;
     else if (price < sma50) score -= 15;
 
-    if (score >= 70 && (!best || score > best.score)) {
-      best = { symbol, price, rsi, sma20, sma50, score };
-    }
+    debugScores.push(`${symbol}=${score}(RSI ${rsi})`);
+
+    if (score >= 70) candidates.push({ symbol, price, rsi, sma20, sma50, score });
   }
-  return best;
+  console.log(`Hisse skor detayları: ${debugScores.join(', ')}`);
+  return candidates.sort((a, b) => b.score - a.score);
+}
+
+// --- Kripto Tarama (Kraken Genel API: anahtarsız, ücretsiz — Binance Cloudflare IP'lerini,
+// CoinGecko ise anonim rate limiti engelliyordu; Kraken ikisinden de etkilenmiyor) ---
+async function fetchCryptoCandles(ticker) {
+  const pair = KRAKEN_PAIR_MAP[ticker] || `${ticker}USD`;
+  const url = `https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=5`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error && data.error.length > 0) {
+      console.log(`[DEBUG] ${ticker} Kraken hatası: HTTP ${res.status}, error=${JSON.stringify(data.error)}`);
+      return null;
+    }
+    const resultKey = Object.keys(data.result || {}).find(k => k !== 'last');
+    const rows = resultKey ? data.result[resultKey] : null;
+    if (!Array.isArray(rows)) {
+      console.log(`[DEBUG] ${ticker} Kraken hatası: beklenmeyen yanıt şekli, body=${JSON.stringify(data).slice(0, 200)}`);
+      return null;
+    }
+    const closes = rows.map(r => parseFloat(r[4])).filter(c => !isNaN(c));
+    if (closes.length < 20) {
+      console.log(`[DEBUG] ${ticker} Kraken yetersiz veri: ${closes.length} nokta`);
+      return null;
+    }
+    return { closes, lastPrice: closes[closes.length - 1] };
+  } catch (e) {
+    console.log(`[DEBUG] ${ticker} Kraken exception: ${e.message}`);
+    return null;
+  }
+}
+
+async function fetchCryptoSpotPrice(ticker) {
+  const pair = KRAKEN_PAIR_MAP[ticker] || `${ticker}USD`;
+  const url = `https://api.kraken.com/0/public/Ticker?pair=${pair}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const resultKey = Object.keys(data.result || {})[0];
+    const price = resultKey ? parseFloat(data.result[resultKey].c[0]) : NaN;
+    return isNaN(price) ? null : price;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function scanCryptoCandidates() {
+  const candidates = [];
+  const debugScores = [];
+  for (const coinId of BOT_CRYPTO_WATCHLIST) {
+    const candles = await fetchCryptoCandles(coinId);
+    if (!candles) {
+      debugScores.push(`${coinId}=veri yok`);
+      continue;
+    }
+
+    const rsi = calculateRSI(candles.closes, 14);
+    const sma20 = calculateSMA(candles.closes, 20);
+    const sma50 = calculateSMA(candles.closes, Math.min(50, candles.closes.length));
+    const price = candles.lastPrice;
+
+    let score = 50;
+    if (rsi <= 35) score += 25;
+    else if (rsi <= 45) score += 15;
+    else if (rsi >= 70) score -= 30;
+    if (price > sma20 && sma20 > sma50) score += 20;
+    else if (price < sma50) score -= 15;
+
+    debugScores.push(`${coinId}=${score}(RSI ${rsi})`);
+
+    if (score >= 70) candidates.push({ symbol: coinId, price, rsi, sma20, sma50, score });
+  }
+  console.log(`Kripto skor detayları: ${debugScores.join(', ')}`);
+  return candidates.sort((a, b) => b.score - a.score);
+}
+
+// --- Forex Tarama (sinyal için Yahoo günlük mumları, giriş/çıkış kuru için uygulamanın
+// da kullandığı Frankfurter kuru — böylece sepette görünen K/Z ile botun kararı aynı kura dayanır) ---
+async function fetchForexRate(pair) {
+  const from = pair.slice(0, 3);
+  const to = pair.slice(3, 6);
+  try {
+    const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+    const data = await res.json();
+    const rate = data?.rates?.[to];
+    return typeof rate === 'number' ? rate : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function scanForexCandidates() {
+  const candidates = [];
+  const debugScores = [];
+  for (const pair of BOT_FOREX_PAIRS) {
+    const candles = await fetchYahooCandles(`${pair}=X`, pair);
+    if (!candles) {
+      debugScores.push(`${pair}=veri yok`);
+      continue;
+    }
+
+    const rsi = calculateRSI(candles.closes, 14);
+    const sma20 = calculateSMA(candles.closes, 20);
+    const sma50 = calculateSMA(candles.closes, Math.min(50, candles.closes.length));
+    const price = candles.lastPrice;
+
+    // Hisse/kripto botuyla aynı puanlama; forex'te açığa satış da mümkün olduğu için ayna puanı da hesaplanır.
+    let longScore = 50;
+    if (rsi <= 35) longScore += 25;
+    else if (rsi <= 45) longScore += 15;
+    else if (rsi >= 70) longScore -= 30;
+    if (price > sma20 && sma20 > sma50) longScore += 20;
+    else if (price < sma50) longScore -= 15;
+
+    let shortScore = 50;
+    if (rsi >= 65) shortScore += 25;
+    else if (rsi >= 55) shortScore += 15;
+    else if (rsi <= 30) shortScore -= 30;
+    if (price < sma20 && sma20 < sma50) shortScore += 20;
+    else if (price > sma50) shortScore -= 15;
+
+    const direction = shortScore > longScore ? 'short' : 'long';
+    const score = Math.max(longScore, shortScore);
+    debugScores.push(`${pair}=${direction} ${score}(RSI ${rsi})`);
+
+    if (score >= 70) candidates.push({ symbol: pair, direction, rsi, score });
+  }
+  console.log(`Forex skor detayları: ${debugScores.join(', ')}`);
+  return candidates.sort((a, b) => b.score - a.score);
 }
 
 // --- Bot Ana Döngüsü ---
@@ -676,108 +939,197 @@ async function fetchUsdTryRate() {
   } catch (e) {
     // yut ve varsayılana düş
   }
-  return 34.5;
+  return 48.7;
 }
 
 async function runAutoTradingBot(env) {
-  if (!env.FIREBASE_SERVICE_ACCOUNT_JSON || !env.FINNHUB_API_KEY) {
-    console.log('Bot çalıştırılamadı: FIREBASE_SERVICE_ACCOUNT_JSON veya FINNHUB_API_KEY eksik.');
+  if (!env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    console.log('Bot çalıştırılamadı: FIREBASE_SERVICE_ACCOUNT_JSON eksik.');
     return;
   }
 
   const serviceAccount = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
   const projectId = serviceAccount.project_id;
-  const usdTryRate = await fetchUsdTryRate(); // BIST fiyatları TL cinsinden gelir, sanal bakiye USD'dir
+  const usdTryRate = await fetchUsdTryRate(); // Sanal bakiye TL'dir; kripto fiyatları USD gelir ve kurla TL'ye çevrilir
 
-  const users = await firestoreRunQuery(env, projectId, {
-    from: [{ collectionId: 'users' }],
-    where: {
-      fieldFilter: {
-        field: { fieldPath: 'autoTradingEnabled' },
-        op: 'EQUAL',
-        value: { booleanValue: true }
+  const [stockUsers, cryptoUsers, forexUsers] = await Promise.all([
+    firestoreRunQuery(env, projectId, {
+      from: [{ collectionId: 'users' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'autoTradingEnabled' },
+          op: 'EQUAL',
+          value: { booleanValue: true }
+        }
       }
-    }
-  });
+    }),
+    firestoreRunQuery(env, projectId, {
+      from: [{ collectionId: 'users' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'autoTradingCryptoEnabled' },
+          op: 'EQUAL',
+          value: { booleanValue: true }
+        }
+      }
+    }),
+    firestoreRunQuery(env, projectId, {
+      from: [{ collectionId: 'users' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'autoTradingForexEnabled' },
+          op: 'EQUAL',
+          value: { booleanValue: true }
+        }
+      }
+    })
+  ]);
 
-  console.log(`AI Sepet Botu döngüsü başladı: ${users.length} katılımcı kullanıcı, USD/TRY: ${usdTryRate}`);
+  const usersByUid = new Map();
+  for (const u of stockUsers) usersByUid.set(u.uid, u);
+  for (const u of cryptoUsers) usersByUid.set(u.uid, u);
+  for (const u of forexUsers) usersByUid.set(u.uid, u);
+  const users = Array.from(usersByUid.values());
+
+  console.log(`AI Sepet Botu döngüsü başladı: ${stockUsers.length} hisse botu, ${cryptoUsers.length} kripto botu, ${forexUsers.length} forex botu katılımcısı, USD/TRY: ${usdTryRate}`);
 
   if (users.length === 0) {
     return;
   }
 
-  let bestCandidate = null; // Aynı döngüde birden çok kullanıcı için tek taramayı paylaş
+  // Taramalar ve fiyatlar döngü başına bir kez çekilir, tüm kullanıcılar arasında paylaşılır
+  const scanCache = {};
+  const getCandidates = async market => {
+    if (!(market in scanCache)) {
+      const scan = { bist: scanBistCandidates, crypto: scanCryptoCandidates, forex: scanForexCandidates }[market];
+      scanCache[market] = await scan();
+      console.log(`${market} taraması: ${scanCache[market].map(c => `${c.symbol}(${c.score})`).join(', ') || 'eşik (70) üzerinde aday yok'}`);
+    }
+    return scanCache[market];
+  };
+  const priceCache = {};
+  const cached = async (key, fn) => {
+    if (!(key in priceCache)) priceCache[key] = await fn();
+    return priceCache[key];
+  };
+  const getBistPriceTRY = symbol => cached(`bist:${symbol}`, async () => (await fetchBistCandles(symbol))?.lastPrice ?? null);
+  const getCryptoPriceUSD = symbol => cached(`crypto:${symbol}`, () => fetchCryptoSpotPrice(symbol));
+  const getForexRate = pair => cached(`forex:${pair}`, () => fetchForexRate(pair));
+
+  // Açık bot pozisyonunun güncel TL değeri ve kâr/zarar yüzdesi (fiyat alınamazsa null)
+  async function valuePosition(pos) {
+    if (pos.type === 'forex') {
+      const rate = await getForexRate(pos.symbol);
+      if (!rate) return null;
+      const move = ((rate - pos.entryRate) / pos.entryRate) * (pos.direction === 'short' ? -1 : 1);
+      const pnlTRY = pos.marginTRY * pos.leverage * move;
+      return { valueTRY: Math.max(0, pos.marginTRY + pnlTRY), pnlPct: (pnlTRY / pos.marginTRY) * 100, exitPrice: rate };
+    }
+    const priceTRY = pos.type === 'bist'
+      ? await getBistPriceTRY(pos.symbol)
+      : ((await getCryptoPriceUSD(pos.symbol)) || 0) * usdTryRate;
+    if (!priceTRY) return null;
+    return { valueTRY: pos.shares * priceTRY, pnlPct: ((priceTRY - pos.avgCostTRY) / pos.avgCostTRY) * 100, exitPrice: Math.round(priceTRY * 100) / 100 };
+  }
+
+  // Aday için ₺budget'lık yeni bot pozisyonu oluşturur (fiyat alınamazsa null)
+  async function openPosition(market, cand, budget) {
+    const now = new Date().toISOString();
+    if (market === 'forex') {
+      const entryRate = await getForexRate(cand.symbol);
+      if (!entryRate) return null;
+      return {
+        id: `fx_bot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        symbol: cand.symbol, type: 'forex', direction: cand.direction, leverage: BOT_FOREX_LEVERAGE,
+        marginTRY: Number(budget.toFixed(2)), entryRate, managedByBot: true, openedAt: now
+      };
+    }
+    const nativePrice = market === 'bist' ? cand.price : (await getCryptoPriceUSD(cand.symbol)) || cand.price;
+    const priceTRY = market === 'bist' ? nativePrice : nativePrice * usdTryRate;
+    if (!priceTRY) return null;
+    return {
+      symbol: cand.symbol, name: cand.symbol, type: market,
+      shares: Number((budget / priceTRY).toFixed(market === 'bist' ? 4 : 8)),
+      avgCostTRY: Math.round(priceTRY * 1e6) / 1e6,
+      avgCostNative: nativePrice,
+      managedByBot: true, addedAt: now
+    };
+  }
+
+  const BOT_MARKETS = [
+    { market: 'bist', flag: 'autoTradingEnabled', label: 'Hisse' },
+    { market: 'crypto', flag: 'autoTradingCryptoEnabled', label: 'Kripto' },
+    { market: 'forex', flag: 'autoTradingForexEnabled', label: 'Forex' }
+  ];
 
   for (const user of users) {
-    try {
-      const portfolio = Array.isArray(user.portfolio) ? user.portfolio : [];
-      const balanceUSD = typeof user.balanceUSD === 'number' ? user.balanceUSD : 10000;
-      const botIdx = portfolio.findIndex(p => p.managedByBot === true);
+    let portfolio = Array.isArray(user.portfolio) ? user.portfolio : [];
+    // TL'ye geçmemiş (eski USD) hesaplara dokunma — kullanıcı uygulamaya girince sıfırlanıp TL'ye geçer
+    if (user.accountCurrencyVersion !== ACCOUNT_CURRENCY_VERSION || typeof user.balanceTRY !== 'number') continue;
 
-      if (botIdx >= 0) {
-        // --- Açık bot pozisyonu var: Al-sat kontrolü ---
-        const pos = portfolio[botIdx];
-        const candles = await fetchBistCandles(pos.symbol, env.FINNHUB_API_KEY);
-        if (!candles) continue;
+    let balanceTRY = user.balanceTRY;
+    let history = Array.isArray(user.botTradeHistory) ? user.botTradeHistory : [];
+    let dirty = false;
 
-        const currentPriceUSD = candles.lastPrice / usdTryRate;
-        const pnlPct = ((currentPriceUSD - pos.avgCostUSD) / pos.avgCostUSD) * 100;
-
-        if (pnlPct >= BOT_TAKE_PROFIT_PCT || pnlPct <= -BOT_STOP_LOSS_PCT) {
-          const returnUSD = pos.shares * currentPriceUSD;
-          const newBalance = Number((balanceUSD + returnUSD).toFixed(2));
-          const newPortfolio = portfolio.filter((_, i) => i !== botIdx);
-          const history = Array.isArray(user.botTradeHistory) ? user.botTradeHistory : [];
+    for (const { market, flag, label } of BOT_MARKETS) {
+      if (user[flag] !== true) continue;
+      try {
+        // 1) Satış: hedefe (+%3) ya da stopa (-%4) ulaşan bot pozisyonlarını kapat
+        const soldNow = new Set();
+        for (const pos of portfolio.filter(p => p.managedByBot === true && p.type === market)) {
+          const v = await valuePosition(pos);
+          if (!v || (v.pnlPct < BOT_TAKE_PROFIT_PCT && v.pnlPct > -BOT_STOP_LOSS_PCT)) continue;
+          balanceTRY = Number((balanceTRY + v.valueTRY).toFixed(2));
+          portfolio = portfolio.filter(p => p !== pos);
+          soldNow.add(pos.symbol);
           history.push({
             symbol: pos.symbol,
-            action: pnlPct >= BOT_TAKE_PROFIT_PCT ? 'TAKE_PROFIT' : 'STOP_LOSS',
-            buyPrice: pos.avgCostUSD,
-            sellPrice: Math.round(currentPriceUSD * 100) / 100,
-            pnlPct: Math.round(pnlPct * 100) / 100,
+            market,
+            action: v.pnlPct >= BOT_TAKE_PROFIT_PCT ? 'TAKE_PROFIT' : 'STOP_LOSS',
+            ...(market === 'forex' ? { direction: pos.direction } : {}),
+            buyPrice: market === 'forex' ? pos.entryRate : pos.avgCostTRY,
+            sellPrice: v.exitPrice,
+            pnlPct: Math.round(v.pnlPct * 100) / 100,
             closedAt: new Date().toISOString()
           });
-
-          await firestorePatchDoc(env, projectId, 'users', user.uid, {
-            portfolio: newPortfolio,
-            balanceUSD: newBalance,
-            botTradeHistory: history.slice(-20)
-          });
-          console.log(`[BOT SELL] ${user.uid} | ${pos.symbol} | PnL: ${pnlPct.toFixed(2)}%`);
+          dirty = true;
+          console.log(`[BOT SAT - ${label}] ${user.uid} | ${pos.symbol} | K/Z: ${v.pnlPct.toFixed(2)}%`);
         }
-      } else {
-        // --- Bot pozisyonu yok: Fırsat tara (tüm kullanıcılar için tek seferlik) ---
-        if (bestCandidate === null) {
-          bestCandidate = (await scanForBestBistCandidate(env.FINNHUB_API_KEY)) || false;
-          console.log(bestCandidate
-            ? `Tarama sonucu: ${bestCandidate.symbol} skor ${bestCandidate.score} ile öne çıktı.`
-            : 'Tarama sonucu: Eşik (70) üzerinde skor bulunamadı, bu döngüde alım yapılmayacak.');
+
+        // 2) Alım: sepette boş yer varsa en yüksek puanlı adaylardan, her biri en fazla ₺10.000
+        let openCount = portfolio.filter(p => p.managedByBot === true && p.type === market).length;
+        if (openCount >= BOT_MAX_POSITIONS_PER_MARKET) continue;
+        const heldSymbols = new Set(portfolio.filter(p => p.type === market).map(p => p.symbol));
+        for (const cand of await getCandidates(market)) {
+          if (openCount >= BOT_MAX_POSITIONS_PER_MARKET) break;
+          // Elde olanı tekrar alma; bu turda satılanı hemen geri alma
+          if (heldSymbols.has(cand.symbol) || soldNow.has(cand.symbol)) continue;
+          const budget = Math.min(BOT_DEFAULT_BUDGET_TRY, balanceTRY);
+          if (budget < 100) break;
+          const pos = await openPosition(market, cand, budget);
+          if (!pos) continue;
+          portfolio = [...portfolio, pos];
+          balanceTRY = Number((balanceTRY - budget).toFixed(2));
+          heldSymbols.add(cand.symbol);
+          openCount++;
+          dirty = true;
+          console.log(`[BOT AL - ${label}] ${user.uid} | ${cand.symbol}${cand.direction ? ` ${cand.direction}` : ''} | ₺${budget} | Skor: ${cand.score}`);
         }
-        if (!bestCandidate) continue;
-
-        const budget = Math.min(BOT_DEFAULT_BUDGET_USD, balanceUSD);
-        if (budget < 10) continue; // yetersiz sanal bakiye
-
-        const priceUSD = bestCandidate.price / usdTryRate;
-        const shares = Number((budget / priceUSD).toFixed(4));
-        const newPortfolio = [...portfolio, {
-          symbol: bestCandidate.symbol,
-          name: bestCandidate.symbol,
-          type: 'bist',
-          shares,
-          avgCostUSD: Math.round(priceUSD * 100) / 100,
-          managedByBot: true,
-          addedAt: new Date().toISOString()
-        }];
-        const newBalance = Number((balanceUSD - budget).toFixed(2));
-
-        await firestorePatchDoc(env, projectId, 'users', user.uid, {
-          portfolio: newPortfolio,
-          balanceUSD: newBalance
-        });
-        console.log(`[BOT BUY] ${user.uid} | ${bestCandidate.symbol} @ ${bestCandidate.price} | Skor: ${bestCandidate.score}`);
+      } catch (err) {
+        console.log(`${label} botu hatası (${user.uid}): ${err.message}`);
       }
-    } catch (err) {
-      console.log(`Bot hatası (${user.uid}): ${err.message}`);
+    }
+
+    if (dirty) {
+      try {
+        await firestorePatchDoc(env, projectId, 'users', user.uid, {
+          portfolio,
+          balanceTRY,
+          botTradeHistory: history.slice(-20)
+        });
+      } catch (err) {
+        console.log(`Bot kaydetme hatası (${user.uid}): ${err.message}`);
+      }
     }
   }
 }

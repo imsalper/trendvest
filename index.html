@@ -19,15 +19,9 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 
   <!-- Stil Dosyası -->
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
-
-  <!-- Sabit Üst Yasal Uyarı Bandı -->
-  <div class="legal-banner-top" id="topLegalBanner">
-    <span>⚖️ <strong>Yasal Uyarı:</strong> Bu platform yatırım danışmanlığı sağlamaz. Sunulan teknik analizler, sepetler ve AI yorumları yalnızca eğitim ve istatistiksel bilgilendirme amaçlıdır.</span>
-    <a id="btnOpenLegalModal">Detaylar</a>
-  </div>
 
   <!-- Üst Navigasyon Menüsü -->
   <header class="navbar">
@@ -100,14 +94,6 @@
          ========================================================================== -->
     <section id="screen-home" class="screen-view active">
       
-      <!-- BIST Sınırlı Veri Bildirimi (Yalnızca TR borsa seçiliyken gösterilir) -->
-      <div class="bist-notice-badge" id="bistNoticeBanner" style="display: none;">
-        <span>ℹ️</span>
-        <div>
-          <strong>Bölgesel Bilgi:</strong> Finnhub ücretsiz katmanında BIST hisseleri için veri akışı sınırlı olabilir. Sistem mevcut verileri ve örnek portföy değerlerini "best effort" olarak derlemektedir.
-        </div>
-      </div>
-
       <!-- Arama Bölümü -->
       <div class="hero-search-section">
         <h2 class="hero-title">BIST 10 Piyasalarını <span class="gradient-text">Veriyle Analiz Et</span></h2>
@@ -188,6 +174,14 @@
 
       <!-- Gizli Konteyner (JS bütünlüğü için) -->
       <div id="globalGrid" style="display: none;"></div>
+
+      <!-- BIST Sınırlı Veri Bildirimi (Yalnızca TR borsa seçiliyken gösterilir) -->
+      <div class="bist-notice-badge" id="bistNoticeBanner" style="display: none;">
+        <span>ℹ️</span>
+        <div>
+          <strong>Bölgesel Bilgi:</strong> Finnhub ücretsiz katmanında BIST hisseleri için veri akışı sınırlı olabilir. Sistem mevcut verileri ve örnek portföy değerlerini "best effort" olarak derlemektedir.
+        </div>
+      </div>
 
     </section>
 
@@ -448,7 +442,7 @@
         <div>
           <h2 class="hero-title" style="font-size: 1.6rem; margin-bottom: 4px;">💼 Kişisel Sepetim & Sanal Portföy</h2>
           <p style="font-size: 0.85rem; color: var(--text-secondary);">
-            $10.000 sanal bakiyenizle alım-satım simülasyonu yapın, kâr/zarar durumunuzu anlık piyasa fiyatlarıyla takip edin.
+            ₺250.000 sanal bakiyenizle alım-satım simülasyonu yapın, kâr/zarar durumunuzu anlık piyasa fiyatlarıyla takip edin.
           </p>
         </div>
         <button class="btn-primary" id="btnPortfolioExploreMarkets" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.85rem;">
@@ -469,7 +463,7 @@
         <div style="font-size: 3rem; margin-bottom: 16px;">🔒</div>
         <h3 style="font-size: 1.3rem; margin-bottom: 8px;">Kişisel Sepetinize Erişmek İçin Giriş Yapın</h3>
         <p style="font-size: 0.9rem; color: var(--text-secondary); max-width: 480px; margin: 0 auto 20px;">
-          Hisse senetleri ve kriptolarla kendi sepetinizi oluşturmak, $10.000 sanal nakdinizle alım simülasyonu yapmak ve pozisyonlarınızı takip etmek için lütfen giriş yapın.
+          Hisse senetleri ve kriptolarla kendi sepetinizi oluşturmak, ₺250.000 sanal nakdinizle alım simülasyonu yapmak ve pozisyonlarınızı takip etmek için lütfen giriş yapın.
         </p>
         <button class="btn-primary" id="btnPortfolioLoginPrompt" style="padding: 10px 24px; font-size: 0.9rem;">👤 Giriş Yap / Kayıt Ol</button>
       </div>
@@ -477,20 +471,40 @@
       <!-- Giriş Yapılmış Kullanıcı Portföy Durumu -->
       <div id="portfolioUserState" style="display: none;">
 
-        <!-- 🤖 Otomatik AI Sepet Botu (Opt-in) -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-          <input type="checkbox" id="autoTradingCheckbox" style="width: 18px; height: 18px; flex-shrink: 0;">
-          <label for="autoTradingCheckbox" style="font-size: 0.88rem; cursor: pointer; flex: 1; min-width: 200px;">
-            🤖 <strong>Otomatik AI Sepet Botu'nu Aç</strong> — BIST 10'u 7/24 gerçek piyasa verisiyle tarar, uygun gördüğünde sanal bakiyenle otomatik alım/satım yapar (+%3 hedef / -%4 stop, tek pozisyon). <strong>Sanal paradır, gerçek işlem değildir.</strong>
-          </label>
+        <!-- 🤖 Otomatik AI Sepet Botları (Opt-in) -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 20px;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px;">🤖 Otomatik AI Sepet Botları</div>
+
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+            <input type="checkbox" id="autoTradingCheckbox" style="width: 18px; height: 18px; flex-shrink: 0;">
+            <label for="autoTradingCheckbox" style="font-size: 0.88rem; cursor: pointer; flex: 1; min-width: 200px;">
+              📈 <strong>Hisse Sepet Botu'nu Aç</strong> — BIST 10'u gerçek piyasa verisiyle 15 dakikada bir tarar, uygun gördüklerini kendi sepetine alır; +%3 kârda satar, -%4'te zararı keser, sonra yeni fırsatlara geçer (sepette en fazla 5 hisse, her alım en fazla ₺10.000).
+            </label>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+            <input type="checkbox" id="autoTradingCryptoCheckbox" style="width: 18px; height: 18px; flex-shrink: 0;">
+            <label for="autoTradingCryptoCheckbox" style="font-size: 0.88rem; cursor: pointer; flex: 1; min-width: 200px;">
+              🪙 <strong>Kripto Sepet Botu'nu Aç</strong> — BTC, ETH, BNB, SOL ve AVAX'ı gerçek piyasa verisiyle 7/24 tarar, uygun gördüklerini kendi sepetine alır; +%3 kârda satar, -%4'te zararı keser, sonra yeni fırsatlara geçer (sepette en fazla 5 coin, her alım en fazla ₺10.000).
+            </label>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <input type="checkbox" id="autoTradingForexCheckbox" style="width: 18px; height: 18px; flex-shrink: 0;">
+            <label for="autoTradingForexCheckbox" style="font-size: 0.88rem; cursor: pointer; flex: 1; min-width: 200px;">
+              💱 <strong>Forex Sepet Botu'nu Aç</strong> — EUR/USD, GBP/USD, USD/JPY, USD/TRY ve EUR/TRY paritelerini tarar, uygun gördüklerinde 10x kaldıraçlı Al veya Sat pozisyonu açar; marj üzerinden +%3 kârda kapatır, -%4'te zararı keser (en fazla 5 pozisyon, her biri en fazla ₺10.000 marj).
+            </label>
+          </div>
+
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 12px;">Tüm botlar <strong>sanal paradır, gerçek işlem değildir.</strong> Birlikte açabilirsiniz.</div>
         </div>
 
-        <!-- 🏆 Efsanevi Yatırımcı Rozeti Bandı ($1M Hedefi) -->
+        <!-- 🏆 Efsanevi Yatırımcı Rozeti Bandı (₺25M Hedefi) -->
         <div id="millionaireBanner" style="display: none; background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(167,139,250,0.12)); border: 1px solid rgba(245,158,11,0.4); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 20px; align-items: center; gap: 14px;">
           <span style="font-size: 2.2rem;">🏆</span>
           <div>
             <div style="font-weight: 700; color: #fbbf24;">Efsanevi Yatırımcı</div>
-            <div style="font-size: 0.82rem; color: var(--text-secondary);">Sanal portföyünü $1.000.000'a çıkardın — özel rozet koleksiyonuna eklendi. 🎉</div>
+            <div style="font-size: 0.82rem; color: var(--text-secondary);">Sanal portföyünü ₺25.000.000'a çıkardın — özel rozet koleksiyonuna eklendi. 🎉</div>
           </div>
         </div>
 
@@ -499,19 +513,19 @@
           
           <div class="card-panel" style="padding: 18px;">
             <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Toplam Portföy Değeri</div>
-            <div style="font-size: 1.5rem; font-weight: 700; color: #fff;" id="portfolioTotalValueUSD">$10,000.00</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #fff;" id="portfolioTotalValueTRY">₺250.000,00</div>
             <div style="font-size: 0.8rem; color: var(--color-primary); margin-top: 4px;" id="portfolioTotalValueLocal">≈ 345.000 ₺</div>
           </div>
 
           <div class="card-panel" style="padding: 18px;">
             <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Kullanılabilir Sanal Nakit</div>
-            <div style="font-size: 1.5rem; font-weight: 700; color: #38bdf8;" id="portfolioCashUSD">$10,000.00</div>
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Başlangıç: $10,000.00</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #38bdf8;" id="portfolioCashTRY">₺250.000,00</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Başlangıç: ₺250.000,00</div>
           </div>
 
           <div class="card-panel" style="padding: 18px;">
             <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Toplam Net Kâr / Zarar</div>
-            <div style="font-size: 1.5rem; font-weight: 700; color: #94a3b8;" id="portfolioProfitLossUSD">$0.00</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #94a3b8;" id="portfolioProfitLossTRY">₺0,00</div>
             <div style="font-size: 0.8rem; font-weight: 600;" id="portfolioProfitLossPct">%0.00</div>
           </div>
 
@@ -525,6 +539,52 @@
 
         <div style="margin-bottom: 24px;">
           <button class="btn-secondary" id="btnSharePortfolio" style="padding: 10px 20px;">📸 Kazancımı Paylaş</button>
+        </div>
+
+        <!-- 💱 Forex Sepeti (Kaldıraçlı Simülasyon) -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 24px;">
+          <h4 class="portfolio-group-title" style="margin-bottom: 4px;">💱 Forex Sepeti (Kaldıraçlı)</h4>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px;">
+            Majör döviz paritelerinde kaldıraçlı sanal pozisyon açın. <strong>Kaldıraç kâr/zararı büyütür</strong> — marjınız kaybınızı aşarsa pozisyon otomatik kapanır. Tamamen sanal paradır, gerçek işlem değildir.
+          </p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: end;">
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Parite</label>
+              <select id="forexPairSelect" class="form-select">
+                <option value="EURUSD">EUR/USD</option>
+                <option value="GBPUSD">GBP/USD</option>
+                <option value="USDJPY">USD/JPY</option>
+                <option value="USDTRY">USD/TRY</option>
+                <option value="EURTRY">EUR/TRY</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Yön</label>
+              <select id="forexDirectionSelect" class="form-select">
+                <option value="long">📈 Al (Long)</option>
+                <option value="short">📉 Sat (Short)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Kaldıraç</label>
+              <select id="forexLeverageSelect" class="form-select">
+                <option value="1">1x</option>
+                <option value="5">5x</option>
+                <option value="10" selected>10x</option>
+                <option value="20">20x</option>
+                <option value="50">50x</option>
+                <option value="100">100x</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Marj (TL)</label>
+              <input type="number" id="forexMarginInput" class="form-select" value="5000" min="100" step="100">
+            </div>
+            <div>
+              <button class="btn-primary" id="btnOpenForexPosition" style="width: 100%; padding: 9px;">Pozisyon Aç</button>
+            </div>
+          </div>
+          <div id="forexOpenPreview" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 10px;"></div>
         </div>
 
         <!-- Portföy Boş Durumu -->
@@ -578,6 +638,20 @@
                   </tr>
                 </thead>
                 <tbody id="portfolioFundTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="portfolio-group" id="portfolioGroupForex">
+            <h4 class="portfolio-group-title">💱 Forex Pozisyonları (<span id="portfolioForexCount">0</span>)</h4>
+            <div class="table-responsive">
+              <table class="screener-table">
+                <thead>
+                  <tr>
+                    <th>Parite</th><th>Yön</th><th>Kaldıraç</th><th>Giriş Kuru</th><th>Güncel Kur</th><th>Marj</th><th>Anlık K/Z</th><th style="text-align: right;">İşlemler</th>
+                  </tr>
+                </thead>
+                <tbody id="portfolioForexTableBody"></tbody>
               </table>
             </div>
           </div>
@@ -730,7 +804,7 @@
             <tr>
               <th>Kullanıcı</th>
               <th>Kayıt Tarihi</th>
-              <th>Bakiye (USD)</th>
+              <th>Bakiye (TL)</th>
               <th>Durum</th>
               <th>İşlemler</th>
             </tr>
@@ -829,7 +903,7 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Birim Alış Fiyatı (TL / USD)</label>
+        <label class="form-label" id="basketPriceLabel">Birim Alış Fiyatı (TL / USD)</label>
         <input type="number" id="basketInputPrice" class="form-control" step="any">
         <div class="form-hint">Varsayılan anlık fiyattır, dilediğiniz maliyeti girebilirsiniz.</div>
       </div>
@@ -842,11 +916,11 @@
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
           <span style="color: var(--text-muted);">Kullanılabilir Sanal Nakit:</span>
-          <span id="basketAvailableCash" style="color: #38bdf8;">$10,000.00</span>
+          <span id="basketAvailableCash" style="color: #38bdf8;">₺250.000,00</span>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
           <span style="color: var(--text-muted);">İşlem Sonrası Nakit:</span>
-          <span id="basketRemainingCash" style="color: var(--text-secondary);">$9,775.50</span>
+          <span id="basketRemainingCash" style="color: var(--text-secondary);">₺249.695,50</span>
         </div>
       </div>
 
@@ -897,7 +971,7 @@
       <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;">
           <span style="color: var(--text-secondary);">Bakiyeye Geçecek Tutar:</span>
-          <strong id="sellCalcReturnUSD" style="color: #10b981; font-size: 1rem;">$224.50</strong>
+          <strong id="sellCalcReturnTRY" style="color: #10b981; font-size: 1rem;">₺0,00</strong>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
           <span style="color: var(--text-muted);">Ortalama Maliyet:</span>
@@ -905,7 +979,7 @@
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
           <span style="color: var(--text-muted);">Tahmini Kâr / Zarar:</span>
-          <span id="sellCalcProfitLossDisplay" style="font-weight: 600;">+$9.50 (+4.4%)</span>
+          <span id="sellCalcProfitLossDisplay" style="font-weight: 600;">₺0,00</span>
         </div>
       </div>
 
@@ -1021,11 +1095,17 @@
     </div>
   </div>
 
+  <!-- Alt Yasal Uyarı Bandı -->
+  <footer class="legal-footer">
+    <span>⚖️ Bu platform yatırım danışmanlığı sağlamaz. Tüm veriler, sepetler ve AI yorumları yalnızca eğitim ve istatistiksel bilgilendirme amaçlıdır, sanal para ile çalışır.</span>
+    <a id="btnOpenLegalModal">Yasal Detaylar</a>
+  </footer>
+
   <!-- JavaScript Kodları -->
-  <script src="indicators.js?v=16"></script>
-  <script src="chart.js?v=16"></script>
-  <script src="screener.js?v=16"></script>
-  <script src="app.js?v=16"></script>
+  <script src="indicators.js?v=26"></script>
+  <script src="chart.js?v=26"></script>
+  <script src="screener.js?v=26"></script>
+  <script src="app.js?v=26"></script>
 
   <!-- Firebase SDK & Başlatma -->
   <script type="module">
