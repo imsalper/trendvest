@@ -709,7 +709,7 @@ async function getFirestoreAccessToken(env) {
 function jsToFirestoreValue(val) {
   if (val === null || val === undefined) return { nullValue: null };
   if (typeof val === 'boolean') return { booleanValue: val };
-  if (typeof val === 'number') return { doubleValue: val };
+  if (typeof val === 'number') return Number.isFinite(val) ? { doubleValue: val } : { nullValue: null }; // NaN/Infinity Firestore'u reddettirir
   if (typeof val === 'string') return { stringValue: val };
   if (Array.isArray(val)) return { arrayValue: { values: val.map(jsToFirestoreValue) } };
   if (typeof val === 'object') {
@@ -775,7 +775,10 @@ async function firestorePatchDoc(env, projectId, collection, docId, updates) {
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields })
   });
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  // Firestore hata dönerse sessizce geçme: aksi halde bot her tur kaydedilmemiş sepeti yeniden alır
+  if (!res.ok) throw new Error(`Firestore ${res.status}: ${JSON.stringify(data?.error || data).slice(0, 300)}`);
+  return data;
 }
 
 // --- Basit RSI / SMA Hesaplama (Finnhub Günlük Mumlar Üzerinden) ---
@@ -1190,6 +1193,7 @@ async function runAutoTradingBot(env) {
           balanceTRY,
           botTradeHistory: history.slice(-20)
         });
+        console.log(`Bot kaydedildi (${user.uid}): ${portfolio.filter(p => p.managedByBot).length} bot pozisyonu, nakit ₺${balanceTRY}`);
       } catch (err) {
         console.log(`Bot kaydetme hatası (${user.uid}): ${err.message}`);
       }
